@@ -21,6 +21,19 @@ jobs:
           test -f minha-estante-android/app/src/main/assets/app.js
           sed -i 's/private void setImmersive(boolean enabled)/private void applyReaderImmersiveMode(boolean enabled)/' minha-estante-android/app/src/main/java/br/com/minhaestante/pdf/MainActivity.java
           sed -i 's/setImmersive(enabled)/applyReaderImmersiveMode(enabled)/' minha-estante-android/app/src/main/java/br/com/minhaestante/pdf/MainActivity.java
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('minha-estante-android/app/src/main/assets/app.js')
+          s = p.read_text()
+          needle = "    readerView: $('#readerView'),\n    readerTitle: $('#readerTitle'),"
+          replacement = "    readerView: $('#readerView'),\n    readerStage: $('#readerStage'),\n    readerTitle: $('#readerTitle'),"
+          if "readerStage: $('#readerStage')" not in s:
+              if needle not in s:
+                  raise SystemExit('readerView block not found')
+              s = s.replace(needle, replacement, 1)
+          p.write_text(s)
+          PY
+          grep -q "readerStage: \$('#readerStage'\)" minha-estante-android/app/src/main/assets/app.js
 
       - uses: actions/setup-java@v4
         with:
