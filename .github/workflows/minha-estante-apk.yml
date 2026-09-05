@@ -1,0 +1,106 @@
+name: Build Minha Estante APK
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.chatgpt-apk/**'
+      - '.github/workflows/minha-estante-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Android project
+        run: |
+          cat .chatgpt-apk/payload.part.* | base64 -d > /tmp/minha-estante.zip
+          unzip -q /tmp/minha-estante.zip
+          test -f minha-estante-android/app/src/main/assets/app.js
+          sed -i 's/private void setImmersive(boolean enabled)/private void applyReaderImmersiveMode(boolean enabled)/' minha-estante-android/app/src/main/java/br/com/minhaestante/pdf/MainActivity.java
+          sed -i 's/setImmersive(enabled)/applyReaderImmersiveMode(enabled)/' minha-estante-android/app/src/main/java/br/com/minhaestante/pdf/MainActivity.java
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('minha-estante-android/app/src/main/assets/app.js')
+          s = p.read_text()
+
+          # v1.1: reader stage reference required before IndexedDB/app init can complete.
+          needle = "    readerView: $('#readerView'),\n    readerTitle: $('#readerTitle'),"
+          replacement = "    readerView: $('#readerView'),\n    readerStage: $('#readerStage'),\n    readerTitle: $('#readerTitle'),"
+          if "readerStage: $('#readerStage')" not in s:
+              if needle not in s:
+                  raise SystemExit('readerView block not found')
+              s = s.replace(needle, replacement, 1)
+
+          # v1.2: Android WebView sometimes releases a partially folded sheet
+          # without crossing StPageFlip's completion threshold.
+          old = """  // A short tap in the central zone toggles the floating reader controls.\n  // Edge gestures remain dedicated to page turning.\n  let readerTapStart = null;\n  els.readerStage.addEventListener('pointerdown', e => {\n    readerTapStart = { x: e.clientX, y: e.clientY, t: performance.now() };\n  }, { passive: true });\n  els.readerStage.addEventListener('pointerup', e => {\n    if (!readerTapStart) return;\n    const dx = e.clientX - readerTapStart.x;\n    const dy = e.clientY - readerTapStart.y;\n    const dt = performance.now() - readerTapStart.t;\n    const moved = Math.hypot(dx, dy);\n    readerTapStart = null;\n    const central = e.clientX > window.innerWidth * .32 && e.clientX < window.innerWidth * .68;\n    if (dt < 280 && moved < 10 && central) toggleReaderControls();\n  }, { passive: true });\n"""
+          new = """  // A short tap in the central zone toggles the floating reader controls.\n  // Horizontal drags are handled by StPageFlip, with an Android WebView\n  // fallback that completes a page turn if the library leaves the sheet\n  // partially folded and snaps it back on release.\n  let readerTapStart = null;\n  els.readerStage.addEventListener('pointerdown', e => {\n    readerTapStart = {\n      x: e.clientX,\n      y: e.clientY,\n      t: performance.now(),\n      page: current?.flip?.getCurrentPageIndex?.() ?? current?.currentPage ?? 0\n    };\n  }, { passive: true });\n\n  const finishReaderGesture = e => {\n    if (!readerTapStart) return;\n    const start = readerTapStart;\n    readerTapStart = null;\n    const dx = e.clientX - start.x;\n    const dy = e.clientY - start.y;\n    const dt = performance.now() - start.t;\n    const moved = Math.hypot(dx, dy);\n    const horizontalSwipe = Math.abs(dx) >= 38 && Math.abs(dx) > Math.abs(dy) * 1.15;\n\n    if (horizontalSwipe && current?.flip) {\n      const intendedNext = dx < 0;\n      window.setTimeout(() => {\n        if (!current?.flip) return;\n        const now = current.flip.getCurrentPageIndex?.() ?? current.currentPage ?? 0;\n        if (now !== start.page) return;\n        if (intendedNext) current.flip.flipNext('bottom');\n        else current.flip.flipPrev('bottom');\n      }, 90);\n      return;\n    }\n\n    const central = e.clientX > window.innerWidth * .32 && e.clientX < window.innerWidth * .68;\n    if (dt < 280 && moved < 10 && central) toggleReaderControls();\n  };\n\n  els.readerStage.addEventListener('pointerup', finishReaderGesture, { passive: true });\n  els.readerStage.addEventListener('pointercancel', () => { readerTapStart = null; }, { passive: true });\n"""
+          if 'const finishReaderGesture = e =>' not in s:
+              if old not in s:
+                  raise SystemExit('reader gesture block not found')
+              s = s.replace(old, new, 1)
+
+          p.write_text(s)
+          PY
+          grep -Fq "readerStage: $('#readerStage')" minha-estante-android/app/src/main/assets/app.js
+          grep -Fq "const finishReaderGesture = e =>" minha-estante-android/app/src/main/assets/app.js
+          node --check minha-estante-android/app/src/main/assets/app.js
+
+      - name: Add v1.3 zoom and annotations
+        run: |
+          cp .chatgpt-apk/v13.js minha-estante-android/app/src/main/assets/v13.js
+          cat .chatgpt-apk/v13.css >> minha-estante-android/app/src/main/assets/styles.css
+          sed -i "/if (!reader.classList.contains('open')) return;/a\\    if (e.target.closest?.('#v13Toolbar')) return;" minha-estante-android/app/src/main/assets/v13.js
+          cat >> minha-estante-android/app/src/main/assets/styles.css <<'CSS'
+          .reader-view.v13-annotating.controls-hidden .v13-toolbar { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
+          CSS
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('minha-estante-android/app/src/main/assets/index.html')
+          s = p.read_text()
+          if '<script src="v13.js"></script>' not in s:
+              s = s.replace('<script src="app.js"></script>', '<script src="app.js"></script>\n  <script src="v13.js"></script>')
+          p.write_text(s)
+          PY
+          sed -i "s/versionCode 1/versionCode 13/" minha-estante-android/app/build.gradle
+          sed -i "s/versionName '1.0.0'/versionName '1.3.0'/" minha-estante-android/app/build.gradle
+          node --check minha-estante-android/app/src/main/assets/v13.js
+          grep -Fq '<script src="v13.js"></script>' minha-estante-android/app/src/main/assets/index.html
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Bundle reader libraries inside APK
+        working-directory: minha-estante-android
+        run: |
+          mkdir -p app/src/main/assets/vendor
+          curl -L --fail --retry 3 -o app/src/main/assets/vendor/pdf.min.js https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js
+          curl -L --fail --retry 3 -o app/src/main/assets/vendor/pdf.worker.min.js https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js
+          curl -L --fail --retry 3 -o app/src/main/assets/vendor/page-flip.browser.js https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js
+
+      - name: Build APK
+        working-directory: minha-estante-android
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Prepare APK
+        run: cp minha-estante-android/app/build/outputs/apk/debug/app-debug.apk Minha-Estante.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Minha-Estante-APK
+          path: Minha-Estante.apk
+          if-no-files-found: error
