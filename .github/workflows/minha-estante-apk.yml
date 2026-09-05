@@ -33,7 +33,7 @@ jobs:
               s = s.replace(needle, replacement, 1)
           p.write_text(s)
           PY
-          grep -q "readerStage: \$('#readerStage'\)" minha-estante-android/app/src/main/assets/app.js
+          grep -Fq "readerStage: $('#readerStage')" minha-estante-android/app/src/main/assets/app.js
 
       - uses: actions/setup-java@v4
         with:
