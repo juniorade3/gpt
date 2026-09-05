@@ -19,6 +19,8 @@ jobs:
           cat .chatgpt-apk/payload.part.* | base64 -d > /tmp/minha-estante.zip
           unzip -q /tmp/minha-estante.zip
           test -f minha-estante-android/app/src/main/assets/app.js
+          sed -i 's/private void setImmersive(boolean enabled)/private void applyReaderImmersiveMode(boolean enabled)/' minha-estante-android/app/src/main/java/br/com/minhaestante/pdf/MainActivity.java
+          sed -i 's/setImmersive(enabled)/applyReaderImmersiveMode(enabled)/' minha-estante-android/app/src/main/java/br/com/minhaestante/pdf/MainActivity.java
 
       - uses: actions/setup-java@v4
         with:
