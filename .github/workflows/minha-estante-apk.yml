@@ -1,0 +1,56 @@
+name: Build Minha Estante APK
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.chatgpt-apk/**'
+      - '.github/workflows/minha-estante-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Android project
+        run: |
+          cat .chatgpt-apk/payload.part.* | base64 -d > /tmp/minha-estante.zip
+          unzip -q /tmp/minha-estante.zip
+          test -f minha-estante-android/app/src/main/assets/app.js
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Bundle reader libraries inside APK
+        working-directory: minha-estante-android
+        run: |
+          mkdir -p app/src/main/assets/vendor
+          curl -L --fail --retry 3 -o app/src/main/assets/vendor/pdf.min.js https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js
+          curl -L --fail --retry 3 -o app/src/main/assets/vendor/pdf.worker.min.js https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js
+          curl -L --fail --retry 3 -o app/src/main/assets/vendor/page-flip.browser.js https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js
+
+      - name: Build APK
+        working-directory: minha-estante-android
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Prepare APK
+        run: cp minha-estante-android/app/build/outputs/apk/debug/app-debug.apk Minha-Estante.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Minha-Estante-APK
+          path: Minha-Estante.apk
+          if-no-files-found: error
