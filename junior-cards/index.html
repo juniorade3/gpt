@@ -2,153 +2,218 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Junior Cards">
   <title>Junior Cards</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <style>
-    *{box-sizing:border-box}
-    body{margin:0;background:#0b1020;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    .app{max-width:700px;margin:auto;padding:18px 16px 30px}
-    h1{font-size:22px;margin:6px 0 14px}
+    *{box-sizing:border-box}body{margin:0;background:#0b1020;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+    .app{max-width:700px;margin:auto;padding:18px 16px calc(30px + env(safe-area-inset-bottom))}
+    header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    h1{font-size:22px;margin:6px 0 14px}.cloud{font-size:12px;color:#9fb0cc}
     .panel{background:#121a2d;border:1px solid #2a3959;border-radius:20px;padding:16px;margin:12px 0}
     .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
-    .stat{background:#0d1527;border-radius:14px;text-align:center;padding:10px}
-    .stat b{display:block;font-size:22px}
-    .stat small{color:#9fb0cc}
+    .stat{background:#0d1527;border-radius:14px;text-align:center;padding:10px}.stat b{display:block;font-size:22px}.stat small{color:#9fb0cc}
     .card{min-height:330px;background:#111a2e;border:1px solid #30466f;border-radius:22px;padding:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-    .tag{color:#9fb0cc;font-size:13px;margin-bottom:18px}
-    .front{font-size:31px;font-weight:800}
-    .back{font-size:22px;margin-top:20px;color:#dfe7f5;white-space:pre-line}
-    button,select{font:inherit}
-    select{width:100%;padding:12px;background:#1a2741;color:#fff;border:1px solid #314465;border-radius:12px}
+    .tag{color:#9fb0cc;font-size:13px;margin-bottom:18px}.front{font-size:31px;font-weight:800}.back{font-size:22px;margin-top:20px;color:#dfe7f5;white-space:pre-line}
+    button,select{font:inherit}select{width:100%;padding:12px;background:#1a2741;color:#fff;border:1px solid #314465;border-radius:12px}
     .primary{width:100%;margin-top:10px;padding:14px;border:0;border-radius:14px;background:#7c9cff;color:#071127;font-weight:800}
-    .grades{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}
-    .grades button{padding:10px 5px;border-radius:12px;background:#1c2942;color:white;border:1px solid #415476;font-weight:700}
-    .grades small{display:block;color:#b7c3d7;margin-top:4px}
-    .hide{display:none}
-    .muted{color:#9fb0cc}
-    .row{display:flex;gap:8px}
-    .ghost{flex:1;padding:12px;border-radius:12px;background:#111a2d;color:#fff;border:1px solid #30415f}
+    .grades{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.grades button{padding:10px 5px;border-radius:12px;background:#1c2942;color:white;border:1px solid #415476;font-weight:700}.grades small{display:block;color:#b7c3d7;margin-top:4px;min-height:14px}
+    .hide{display:none!important}.muted{color:#9fb0cc}.row{display:flex;gap:8px}.ghost{flex:1;padding:12px;border-radius:12px;background:#111a2d;color:#fff;border:1px solid #30415f}
+    .notice{font-size:13px;background:#18223a;border:1px solid #33476e;border-radius:14px;padding:12px;margin:10px 0;color:#c8d4e8}
+    .error{background:#351a21;border-color:#713342;color:#ffd0d7}.loading{text-align:center;padding:46px 10px;color:#9fb0cc}
     @media(max-width:440px){.grades{grid-template-columns:repeat(2,1fr)}.front{font-size:28px}}
   </style>
 </head>
 <body>
 <div class="app">
-  <h1>🧠 Junior Cards</h1>
-  <div class="panel">
-    <select id="deck"></select>
-    <div class="stats">
-      <div class="stat"><b id="due">0</b><small>HOJE</small></div>
-      <div class="stat"><b id="newc">0</b><small>NOVOS</small></div>
-      <div class="stat"><b id="streak">0</b><small>SEQUÊNCIA</small></div>
+  <header><h1>🧠 Junior Cards</h1><div class="cloud" id="cloudStatus">☁️ conectando…</div></header>
+  <div id="notice" class="notice hide"></div>
+
+  <div id="loading" class="panel loading">Carregando seus cartões…</div>
+
+  <main id="main" class="hide">
+    <div class="panel">
+      <select id="deck"></select>
+      <div class="stats">
+        <div class="stat"><b id="due">0</b><small>HOJE</small></div>
+        <div class="stat"><b id="newc">0</b><small>NOVOS</small></div>
+        <div class="stat"><b id="streak">0</b><small>SEQUÊNCIA</small></div>
+      </div>
     </div>
-  </div>
-  <div id="study">
-    <div class="card">
-      <div class="tag" id="tag"></div>
-      <div class="front" id="front"></div>
-      <div class="back hide" id="back"></div>
+
+    <div id="study">
+      <div class="card">
+        <div class="tag" id="tag"></div>
+        <div class="front" id="front"></div>
+        <div class="back hide" id="back"></div>
+      </div>
+      <button class="primary" id="show">Mostrar resposta</button>
+      <div class="grades hide" id="grades">
+        <button data-g="1">Errei<small id="i1">…</small></button>
+        <button data-g="2">Difícil<small id="i2">…</small></button>
+        <button data-g="3">Bom<small id="i3">…</small></button>
+        <button data-g="4">Fácil<small id="i4">…</small></button>
+      </div>
     </div>
-    <button class="primary" id="show">Mostrar resposta</button>
-    <div class="grades hide" id="grades">
-      <button data-g="1">Errei<small id="i1"></small></button>
-      <button data-g="2">Difícil<small id="i2"></small></button>
-      <button data-g="3">Bom<small id="i3"></small></button>
-      <button data-g="4">Fácil<small id="i4"></small></button>
+
+    <div class="panel hide" id="done">
+      <h2>Revisões concluídas 🎉</h2>
+      <p class="muted">Nenhum cartão vencido neste baralho agora.</p>
     </div>
-  </div>
-  <div class="panel hide" id="done">
-    <h2>Revisões concluídas 🎉</h2>
-    <p class="muted">Nenhum cartão vencido agora.</p>
-  </div>
-  <div class="panel">
-    <div class="row">
-      <button class="ghost" id="backup">Exportar progresso</button>
-      <button class="ghost" id="reset">Reiniciar progresso</button>
+
+    <div class="panel">
+      <div class="row">
+        <button class="ghost" id="refresh">↻ Atualizar</button>
+        <button class="ghost" id="backup">💾 Backup</button>
+      </div>
+      <p class="muted" style="font-size:12px;margin-bottom:0">
+        FSRS • retenção-alvo 90% • progresso sincronizado na nuvem.
+      </p>
     </div>
-    <p class="muted" style="font-size:12px;margin-bottom:0">
-      Revisão espaçada adaptativa inspirada no fluxo do Anki/FSRS. Meta de retenção: 90%.
-    </p>
-  </div>
+  </main>
 </div>
 <script>
-const decks=[{
-  id:"english-false-friends",
-  name:"🇬🇧 Inglês — Falsos cognatos",
-  cards:[
-    ["actually","na verdade / de fato","≠ atualmente"],
-    ["pretend","fingir / fazer de conta","≠ pretender"],
-    ["parents","pais","≠ parentes"],
-    ["library","biblioteca","≠ livraria"],
-    ["college","faculdade","≠ colégio"],
-    ["realize","perceber / dar-se conta","≠ realizar"],
-    ["eventually","finalmente / com o tempo","≠ eventualmente"],
-    ["fabric","tecido","≠ fábrica"],
-    ["costume","fantasia / traje","≠ costume"],
-    ["lunch","almoço","≠ lanche"],
-    ["novel","romance (livro)","≠ novela"],
-    ["sensible","sensato / razoável","≠ sensível"],
-    ["sympathy","compaixão / solidariedade","≠ simpatia"],
-    ["push","empurrar","≠ puxar"],
-    ["pull","puxar","≠ pular"]
-  ].map((x,i)=>({id:"eng-"+(i+1),front:x[0],back:x[1],note:x[2]}))
-}];
-const KEY="juniorcards-progress-v1";
-let state=JSON.parse(localStorage.getItem(KEY)||'{"cards":{},"streak":{"count":0,"last":null}}');
-const $=id=>document.getElementById(id), now=()=>Date.now(), DAY=86400000;
-let current=null;
-function cs(id){return state.cards[id]||(state.cards[id]={reps:0,lapses:0,stability:0.7,difficulty:5,due:0,last:0});}
-function save(){localStorage.setItem(KEY,JSON.stringify(state))}
-function fmt(d){if(d<1/24)return Math.max(1,Math.round(d*1440))+" min";if(d<1)return Math.max(1,Math.round(d*24))+" h";if(d<30)return Math.round(d)+" d";if(d<365)return Math.round(d/30)+" mês";return (d/365).toFixed(1)+" a";}
-function interval(s,g){
-  if(!s.reps) return [0,10/1440,1,3,7][g];
-  const elapsed=Math.max(.01,(now()-s.last)/DAY);
-  const retr=Math.exp(-elapsed/Math.max(.25,s.stability));
-  const mult=[0,.18,1.22,2.15,3.2][g];
-  let value=Math.max(.08,s.stability*mult);
-  if(g>1)value*=Math.max(.75,Math.min(1.45,1+(1-retr)*.55));
-  if(g===1)return Math.max(10/1440,Math.min(.5,value));
-  return Math.max(g===2?.5:1,Math.min(36500,value));
+const CACHE_KEY="juniorcards-cloud-cache-v2";
+const ACCESS_KEY="juniorcards-access-key";
+const OLD_KEY="juniorcards-progress-v1";
+let data={decks:[],cards:[],reviewDates:[]},deckId=null,current=null,preview=null;
+
+const $=id=>document.getElementById(id);
+function accessKey(){return localStorage.getItem(ACCESS_KEY)||""}
+async function api(url, options={}, allowPrompt=true){
+  const headers={"Content-Type":"application/json",...(options.headers||{})};
+  if(accessKey()) headers["x-junior-key"]=accessKey();
+  const res=await fetch(url,{...options,headers});
+  if(res.status===401 && allowPrompt){
+    const key=prompt("Digite a chave de acesso do Junior Cards:");
+    if(key){localStorage.setItem(ACCESS_KEY,key.trim());return api(url,options,false)}
+  }
+  if(!res.ok){
+    const body=await res.json().catch(()=>({}));
+    throw new Error(body.detail||body.error||("HTTP "+res.status));
+  }
+  return res.json();
+}
+function setCloud(text,ok=true){$("cloudStatus").textContent=(ok?"☁️ ":"⚠️ ")+text}
+function showNotice(text,error=false){
+  $("notice").textContent=text;$("notice").classList.remove("hide","error");
+  if(error)$("notice").classList.add("error");
+}
+function hideNotice(){$("notice").classList.add("hide")}
+function stateOf(c){return c.review?.fsrs_card||null}
+function isNew(c){const s=stateOf(c);return !s||!s.reps}
+function isDue(c){const s=stateOf(c);return s&&new Date(s.due).getTime()<=Date.now()}
+function currentDeckCards(){return data.cards.filter(c=>c.deck_id===deckId)}
+function calcStreak(){
+  const days=new Set((data.reviewDates||[]).map(x=>new Date(x).toISOString().slice(0,10)));
+  let n=0,d=new Date();
+  const today=d.toISOString().slice(0,10);
+  if(!days.has(today)){d.setDate(d.getDate()-1)}
+  while(days.has(d.toISOString().slice(0,10))){n++;d.setDate(d.getDate()-1)}
+  return n;
 }
 function stats(){
-  let due=0,newc=0,t=now();
-  decks[0].cards.forEach(c=>{let s=cs(c.id);if(!s.reps)newc++;else if(s.due<=t)due++;});
-  $("due").textContent=due;$("newc").textContent=newc;$("streak").textContent=state.streak.count||0;
+  const cards=currentDeckCards();
+  $("due").textContent=cards.filter(isDue).length;
+  $("newc").textContent=cards.filter(isNew).length;
+  $("streak").textContent=calcStreak();
+}
+function formatInterval(iso){
+  const ms=new Date(iso).getTime()-Date.now();
+  if(ms<=0)return "agora";
+  const min=ms/60000;
+  if(min<60)return Math.max(1,Math.round(min))+" min";
+  const h=min/60;if(h<24)return Math.max(1,Math.round(h))+" h";
+  const d=h/24;if(d<30)return Math.round(d)+" d";
+  if(d<365)return Math.round(d/30)+" mês"+(Math.round(d/30)>1?"es":"");
+  return (d/365).toFixed(1)+" a";
+}
+async function loadPreview(){
+  preview=null;[1,2,3,4].forEach(g=>$("i"+g).textContent="…");
+  if(!current)return;
+  try{
+    const r=await api("/api/preview",{method:"POST",body:JSON.stringify({cardId:current.id})});
+    preview=r.preview;
+    $("i1").textContent=formatInterval(preview.again.due);
+    $("i2").textContent=formatInterval(preview.hard.due);
+    $("i3").textContent=formatInterval(preview.good.due);
+    $("i4").textContent=formatInterval(preview.easy.due);
+  }catch(e){[1,2,3,4].forEach(g=>$("i"+g).textContent="online");}
 }
 function next(){
   stats();
-  current=decks[0].cards.filter(c=>{const s=cs(c.id);return !s.reps||s.due<=now();}).sort((a,b)=>{const x=cs(a.id),y=cs(b.id);if(!x.reps&&y.reps)return 1;if(x.reps&&!y.reps)return -1;return x.due-y.due;})[0];
-  if(!current){$("study").classList.add("hide");$("done").classList.remove("hide");return;}
+  const cards=currentDeckCards().filter(c=>isDue(c)||isNew(c)).sort((a,b)=>{
+    if(isDue(a)&&!isDue(b))return-1;if(!isDue(a)&&isDue(b))return 1;
+    if(isNew(a)&&!isNew(b))return 1;if(!isNew(a)&&isNew(b))return-1;
+    const ad=stateOf(a)?.due||"9999",bd=stateOf(b)?.due||"9999";
+    return String(ad).localeCompare(String(bd));
+  });
+  current=cards[0]||null;
+  if(!current){$("study").classList.add("hide");$("done").classList.remove("hide");return}
   $("study").classList.remove("hide");$("done").classList.add("hide");
-  const s=cs(current.id);
-  $("front").textContent=current.front;$("back").textContent=current.back+"\n"+current.note;
+  const s=stateOf(current);
+  $("tag").textContent=isNew(current)?"Novo":"Revisão "+(s.reps||0);
+  $("front").textContent=current.front;
+  $("back").textContent=current.back+(current.note?"\n"+current.note:"");
   $("back").classList.add("hide");$("grades").classList.add("hide");$("show").classList.remove("hide");
-  $("tag").textContent=s.reps?("Revisão "+s.reps):"Novo";
-  [1,2,3,4].forEach(g=>$("i"+g).textContent=fmt(interval(s,g)));
+  loadPreview();
 }
-function grade(g){
-  const s=cs(current.id),t=now(),iv=interval(s,g),elapsed=s.last?Math.max(.01,(t-s.last)/DAY):0;
-  if(g===1){s.lapses++;s.difficulty=Math.min(10,s.difficulty+.8);s.stability=Math.max(.25,s.stability*.45)}
-  if(g===2){s.difficulty=Math.min(10,s.difficulty+.18);s.stability=Math.max(.6,s.stability*1.18+elapsed*.08)}
-  if(g===3){s.difficulty=Math.max(1,s.difficulty-.12);s.stability=Math.max(1,s.stability*1.85+elapsed*.18)}
-  if(g===4){s.difficulty=Math.max(1,s.difficulty-.35);s.stability=Math.max(2,s.stability*2.65+elapsed*.28)}
-  s.reps++;s.last=t;s.due=t+iv*DAY;
-  const today=new Date().toISOString().slice(0,10);
-  if(state.streak.last!==today){const y=new Date();y.setDate(y.getDate()-1);const yd=y.toISOString().slice(0,10);state.streak.count=state.streak.last===yd?(state.streak.count||0)+1:1;state.streak.last=today;}
-  save();next();
+function renderDecks(){
+  $("deck").innerHTML=data.decks.map(d=>'<option value="'+d.id+'">'+d.name+'</option>').join("");
+  if(!deckId||!data.decks.some(d=>d.id===deckId))deckId=data.decks[0]?.id||null;
+  $("deck").value=deckId||"";
 }
-$("deck").innerHTML=decks.map(d=>`<option>${d.name}</option>`).join("");
-$("show").onclick=()=>{$("back").classList.remove("hide");$("grades").classList.remove("hide");$("show").classList.add("hide");};
+async function load(){
+  hideNotice();setCloud("sincronizando…");
+  try{
+    data=await api("/api/cards");
+    localStorage.setItem(CACHE_KEY,JSON.stringify(data));
+    setCloud("sincronizado");
+  }catch(e){
+    const cached=localStorage.getItem(CACHE_KEY);
+    if(cached){
+      data=JSON.parse(cached);setCloud("modo offline",false);
+      showNotice("Sem conexão com a nuvem. Mostrando o último conteúdo salvo neste aparelho.",true);
+    }else{
+      $("loading").textContent="Não foi possível carregar o Junior Cards: "+e.message;
+      setCloud("erro",false);return;
+    }
+  }
+  $("loading").classList.add("hide");$("main").classList.remove("hide");
+  renderDecks();next();
+  if(localStorage.getItem(OLD_KEY)){
+    showNotice("Seu progresso da versão antiga continua preservado neste iPhone. Ele ainda não foi apagado.");
+  }
+}
+async function grade(g){
+  if(!current)return;
+  document.querySelectorAll("[data-g]").forEach(b=>b.disabled=true);
+  try{
+    const r=await api("/api/review",{method:"POST",body:JSON.stringify({cardId:current.id,grade:g})});
+    current.review={card_id:current.id,fsrs_card:r.card,last_grade:g,updated_at:new Date().toISOString()};
+    data.reviewDates.unshift(new Date().toISOString());
+    localStorage.setItem(CACHE_KEY,JSON.stringify(data));
+    setCloud("salvo ✓");
+    next();
+  }catch(e){
+    showNotice("Não consegui salvar esta resposta: "+e.message,true);setCloud("não salvo",false);
+  }finally{document.querySelectorAll("[data-g]").forEach(b=>b.disabled=false)}
+}
+$("show").onclick=()=>{$("back").classList.remove("hide");$("grades").classList.remove("hide");$("show").classList.add("hide")};
 document.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>grade(+b.dataset.g));
-$("backup").onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="junior-cards-backup.json";a.click();};
-$("reset").onclick=()=>{if(confirm("Apagar todo o progresso de revisão deste aparelho?")){localStorage.removeItem(KEY);location.reload();}};
-next();
-if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}
+$("deck").onchange=e=>{deckId=e.target.value;next()};
+$("refresh").onclick=load;
+$("backup").onclick=()=>{
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="junior-cards-cloud-backup.json";a.click();
+};
+load();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
-</body>
-</html>
+</body></html>
