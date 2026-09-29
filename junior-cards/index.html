@@ -79,7 +79,7 @@
   </main>
 </div>
 <script>
-const CACHE_KEY="juniorcards-cloud-cache-v2";
+const CACHE_KEY="juniorcards-cloud-cache-v3";\nconst API_BASE="https://vdqikaysebdondezpeqg.supabase.co/functions/v1/junior-cards-api";\nconst MIGRATION_KEY="juniorcards-legacy-migrated-v1";
 const ACCESS_KEY="juniorcards-access-key";
 const OLD_KEY="juniorcards-progress-v1";
 let data={decks:[],cards:[],reviewDates:[]},deckId=null,current=null,preview=null;
@@ -92,6 +92,35 @@ const FALLBACK_WORDS=[
   ["novel","romance (livro)","≠ novela"],["sensible","sensato / razoável","≠ sensível"],
   ["sympathy","compaixão / solidariedade","≠ simpatia"],["push","empurrar","≠ puxar"],["pull","puxar","≠ pular"]
 ];
+async function migrateLegacyIfNeeded(){
+  if(localStorage.getItem(MIGRATION_KEY)) return false;
+  let old=null;
+  try{ old=JSON.parse(localStorage.getItem(OLD_KEY)||"null"); }catch{}
+  if(!old?.cards){ localStorage.setItem(MIGRATION_KEY,"1"); return false; }
+  const items=[];
+  FALLBACK_WORDS.forEach((x,i)=>{
+    const s=old.cards["eng-"+(i+1)];
+    if(!s) return;
+    const reps=Number(s.r||s.reps||0);
+    if(!reps) return;
+    items.push({
+      front:x[0],
+      reps,
+      lapses:Number(s.l||s.lapses||0),
+      stability:Number(s.s||s.stability||0.7),
+      difficulty:Number(s.d||s.difficulty||5),
+      due:Number(s.due||0),
+      last:Number(s.last||0)
+    });
+  });
+  if(items.length){
+    const r=await api("/api/import-legacy",{method:"POST",body:JSON.stringify({items})});
+    showNotice("Migrei "+(r.imported||0)+" cartão(ões) do progresso antigo deste iPhone para a nuvem.");
+  }
+  localStorage.setItem(MIGRATION_KEY,"1");
+  return items.length>0;
+}
+
 function fallbackData(){
   let old={cards:{},streak:{count:0,last:null}};
   try{old=JSON.parse(localStorage.getItem(OLD_KEY)||JSON.stringify(old))}catch{}
@@ -116,7 +145,7 @@ function accessKey(){return localStorage.getItem(ACCESS_KEY)||""}
 async function api(url, options={}, allowPrompt=true){
   const headers={"Content-Type":"application/json",...(options.headers||{})};
   if(accessKey()) headers["x-junior-key"]=accessKey();
-  const res=await fetch(url,{...options,headers});
+  const target=url.startsWith("/api/") ? API_BASE+"/"+url.slice(5) : url;\n  const res=await fetch(target,{...options,headers});
   if(res.status===401 && allowPrompt){
     const key=prompt("Digite a chave de acesso do Junior Cards:");
     if(key){localStorage.setItem(ACCESS_KEY,key.trim());return api(url,options,false)}
@@ -201,6 +230,8 @@ async function load(){
   try{
     data=await api("/api/cards");
     cloudMode=true;fallbackMode=false;
+    const migrated=await migrateLegacyIfNeeded();
+    if(migrated) data=await api("/api/cards");
     localStorage.setItem(CACHE_KEY,JSON.stringify(data));
     setCloud("sincronizado");
   }catch(e){
@@ -216,8 +247,8 @@ async function load(){
   }
   $("loading").classList.add("hide");$("main").classList.remove("hide");
   renderDecks();next();
-  if(localStorage.getItem(OLD_KEY)){
-    showNotice("Seu progresso da versão antiga continua preservado neste iPhone. Ele ainda não foi apagado.");
+  if(localStorage.getItem(OLD_KEY) && !localStorage.getItem(MIGRATION_KEY)){
+    showNotice("Encontrei progresso da versão antiga neste iPhone e vou migrá-lo para a nuvem.");
   }
 }
 function localGrade(g){
