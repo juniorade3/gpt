@@ -79,7 +79,9 @@
   </main>
 </div>
 <script>
-const CACHE_KEY="juniorcards-cloud-cache-v3";\nconst API_BASE="https://vdqikaysebdondezpeqg.supabase.co/functions/v1/junior-cards-api";\nconst MIGRATION_KEY="juniorcards-legacy-migrated-v1";
+const CACHE_KEY="juniorcards-cloud-cache-v3";
+const API_BASE="https://vdqikaysebdondezpeqg.supabase.co/functions/v1/junior-cards-api";
+const MIGRATION_KEY="juniorcards-legacy-migrated-v1";
 const ACCESS_KEY="juniorcards-access-key";
 const OLD_KEY="juniorcards-progress-v1";
 let data={decks:[],cards:[],reviewDates:[]},deckId=null,current=null,preview=null;
@@ -145,7 +147,8 @@ function accessKey(){return localStorage.getItem(ACCESS_KEY)||""}
 async function api(url, options={}, allowPrompt=true){
   const headers={"Content-Type":"application/json",...(options.headers||{})};
   if(accessKey()) headers["x-junior-key"]=accessKey();
-  const target=url.startsWith("/api/") ? API_BASE+"/"+url.slice(5) : url;\n  const res=await fetch(target,{...options,headers});
+  const target=url.startsWith("/api/") ? API_BASE+"/"+url.slice(5) : url;
+  const res=await fetch(target,{...options,headers});
   if(res.status===401 && allowPrompt){
     const key=prompt("Digite a chave de acesso do Junior Cards:");
     if(key){localStorage.setItem(ACCESS_KEY,key.trim());return api(url,options,false)}
