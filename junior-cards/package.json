@@ -1,0 +1,9 @@
+{
+  "name": "junior-cards",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "ts-fsrs": "5.4.2"
+  }
+}
