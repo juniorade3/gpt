@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "method_not_allowed" });
   try {
     const [decks, cards, states, events] = await Promise.all([
-      db("decks?select=id,name,sort_order&active=eq.true&order=sort_order.asc"),
+      db("decks?select=id,name,sort_order,parent_id&active=eq.true&order=sort_order.asc"),
       db("cards?select=id,deck_id,front,back,note,tags,sort_order&active=eq.true&order=sort_order.asc"),
       db("review_state?select=card_id,fsrs_card,last_grade,updated_at"),
       db("review_events?select=reviewed_at&order=reviewed_at.desc&limit=365")

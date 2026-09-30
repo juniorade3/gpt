@@ -39,7 +39,12 @@
     .code-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#93a4bf;margin-bottom:8px}
     .sql-kw{color:#9db7ff;font-weight:700}
     .card-note{margin-top:18px;padding-top:12px;border-top:1px solid #2b3c59;color:#91a3bf;font-size:12px;font-weight:400;text-align:left}
-    button,select{font:inherit}select{width:100%;padding:12px;background:#1a2741;color:#fff;border:1px solid #314465;border-radius:12px}
+    button,select,input{font:inherit}select,input[type=text]{width:100%;padding:12px;background:#1a2741;color:#fff;border:1px solid #314465;border-radius:12px}
+    button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #a8bfff;outline-offset:3px}
+    .selector-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.selector-head label{font-weight:700}.text-button{border:0;background:none;color:#b9caff;font-size:13px;padding:6px}
+    .categories{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.category{padding:9px 12px;min-height:42px;border-radius:12px;border:1px solid #314465;background:#111a2d;color:#c6d2e8;font-size:14px;max-width:100%;overflow-wrap:anywhere}.category[aria-pressed=true]{background:#7c9cff;color:#071127;border-color:#7c9cff;font-weight:700}.category small{margin-left:7px;opacity:.8}
+    .scope-note{font-size:12px;margin:10px 0 0;line-height:1.5}.tag{overflow-wrap:anywhere}
+    dialog{color:#f8fafc;background:#121a2d;border:1px solid #314465;border-radius:20px;padding:20px;width:min(640px,calc(100% - 24px));max-height:90dvh;overflow:auto}dialog::backdrop{background:#050a16cc}.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.dialog-head h2{font-size:20px;margin:0}.dialog-head button{flex:0}.organizer-section{border-top:1px solid #2a3959;padding:16px 0}.organizer-section summary{cursor:pointer;font-weight:700}.organizer-section form{margin-top:14px}.field{display:block;margin:12px 0}.field span{display:block;color:#b7c6df;font-size:13px;margin-bottom:7px}.organizer-section .primary{padding:12px}.help{font-size:13px;line-height:1.55}.card-list{max-height:240px;overflow:auto;margin:10px 0;border:1px solid #314465;border-radius:12px}.card-choice{display:flex;align-items:flex-start;gap:10px;padding:12px;border-bottom:1px solid #263653;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.card-choice:last-child{border-bottom:0}.card-choice input{margin-top:4px;flex-shrink:0}.select-all{font-size:13px;display:flex;gap:8px;align-items:center}.dialog-status{position:sticky;top:0;z-index:1}
     .primary{width:100%;margin-top:10px;padding:14px;border:0;border-radius:14px;background:#7c9cff;color:#071127;font-weight:800}
     .grades{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.grades button{padding:10px 5px;border-radius:12px;background:#1c2942;color:white;border:1px solid #415476;font-weight:700}.grades small{display:block;color:#b7c3d7;margin-top:4px;min-height:14px}
     .hide{display:none!important}.muted{color:#9fb0cc}.row{display:flex;gap:8px}.ghost{flex:1;padding:12px;border-radius:12px;background:#111a2d;color:#fff;border:1px solid #30415f}
@@ -57,7 +62,10 @@
 
   <main id="main" class="hide">
     <div class="panel">
-      <select id="deck"></select>
+      <div class="selector-head"><label for="deck">Matéria</label><button class="text-button" id="organize">Organizar matérias</button></div>
+      <select id="deck" aria-label="Matéria"></select>
+      <div id="categories" class="categories" role="group" aria-label="Parte da matéria"></div>
+      <p id="scopeNote" class="muted scope-note"></p>
       <div class="stats">
         <div class="stat"><b id="due">0</b><small>HOJE</small></div>
         <div class="stat"><b id="newc">0</b><small>NOVOS</small></div>
@@ -81,8 +89,8 @@
     </div>
 
     <div class="panel hide" id="done">
-      <h2>Revisões concluídas 🎉</h2>
-      <p class="muted">Nenhum cartão vencido neste baralho agora.</p>
+      <h2 id="doneTitle">Revisões concluídas 🎉</h2>
+      <p class="muted" id="doneText"></p>
     </div>
 
     <div class="panel">
@@ -96,14 +104,51 @@
     </div>
   </main>
 </div>
-<script>
+<dialog id="organizer" aria-labelledby="organizerTitle">
+  <div class="dialog-head"><h2 id="organizerTitle">Organizar matérias</h2><button class="ghost" id="closeOrganizer" aria-label="Fechar organização">Fechar</button></div>
+  <p class="muted help">Crie partes dentro de uma matéria e escolha onde cada cartão fica. O histórico de revisão acompanha o cartão.</p>
+  <div id="organizerStatus" class="notice hide dialog-status" role="status" aria-live="polite"></div>
+  <details class="organizer-section" open>
+    <summary>Criar matéria ou subcategoria</summary>
+    <form id="createCategory">
+      <label class="field"><span>Nome</span><input id="categoryName" type="text" placeholder="Ex.: Relacional, SQL, Caderno de Erros" maxlength="120" required></label>
+      <label class="field"><span>Dentro de</span><select id="categoryParent"></select></label>
+      <button class="primary" type="submit">Criar</button>
+    </form>
+  </details>
+  <details class="organizer-section">
+    <summary>Renomear ou reorganizar categorias</summary>
+    <form id="editCategory">
+      <label class="field"><span>Matéria ou subcategoria</span><select id="editDeck"></select></label>
+      <label class="field"><span>Nome</span><input id="editName" type="text" maxlength="120" required></label>
+      <label class="field"><span>Dentro de</span><select id="editParent"></select></label>
+      <button class="primary" type="submit">Salvar organização</button>
+    </form>
+  </details>
+  <details class="organizer-section">
+    <summary>Mover cartões entre categorias</summary>
+    <form id="moveCards">
+      <label class="field"><span>De onde vêm os cartões?</span><select id="moveSource"></select></label>
+      <label class="select-all"><input id="selectAllCards" type="checkbox">Selecionar todos desta categoria</label>
+      <div id="moveCardList" class="card-list"></div>
+      <label class="field"><span>Para onde vão?</span><select id="moveTarget"></select></label>
+      <p id="moveCount" class="muted help" aria-live="polite"></p>
+      <button class="primary" id="moveSubmit" type="submit" disabled>Mover cartões</button>
+    </form>
+  </details>
+</dialog>
+<script type="module">
+import { descendants, roots, deckPath, orderedDecks, scopedCards } from './hierarchy.js';
 const CACHE_KEY="juniorcards-cloud-cache-v3";
 const API_BASE="https://vdqikaysebdondezpeqg.supabase.co/functions/v1/junior-cards-api";
 const MIGRATION_KEY="juniorcards-legacy-migrated-v1";
 const ACCESS_KEY="juniorcards-access-key";
 const OLD_KEY="juniorcards-progress-v1";
-let data={decks:[],cards:[],reviewDates:[]},deckId=null,current=null,preview=null;
+const SELECTION_KEY="juniorcards-selection-v1";
+let savedSelection={};try{savedSelection=JSON.parse(localStorage.getItem(SELECTION_KEY)||"{}")}catch{}
+let data={decks:[],cards:[],reviewDates:[]},deckId=savedSelection.deckId||null,categoryId=savedSelection.categoryId||null,current=null,preview=null;
 let cloudMode=false,fallbackMode=false;
+let reviewing=false,organizing=false;
 const FALLBACK_WORDS=[
   ["actually","na verdade / de fato","≠ atualmente"],["pretend","fingir / fazer de conta","≠ pretender"],
   ["parents","pais","≠ parentes"],["library","biblioteca","≠ livraria"],["college","faculdade","≠ colégio"],
@@ -254,7 +299,9 @@ function isRichCard(text){
 function stateOf(c){return c.review?.fsrs_card||null}
 function isNew(c){const s=stateOf(c);return !s||!s.reps}
 function isDue(c){const s=stateOf(c);return s&&new Date(s.due).getTime()<=Date.now()}
-function currentDeckCards(){return data.cards.filter(c=>c.deck_id===deckId)}
+function currentDeckCards(){return scopedCards(data,deckId,categoryId)}
+function pathLabel(id){return deckPath(data.decks,id).map(d=>d.name).join(" › ")}
+function saveSelection(){localStorage.setItem(SELECTION_KEY,JSON.stringify({deckId,categoryId}))}
 function calcStreak(){
   const days=new Set((data.reviewDates||[]).map(x=>new Date(x).toISOString().slice(0,10)));
   let n=0,d=new Date();
@@ -268,6 +315,7 @@ function stats(){
   $("due").textContent=cards.filter(isDue).length;
   $("newc").textContent=cards.filter(isNew).length;
   $("streak").textContent=calcStreak();
+  renderCategories();
 }
 function formatInterval(iso){
   const ms=new Date(iso).getTime()-Date.now();
@@ -282,14 +330,16 @@ function formatInterval(iso){
 async function loadPreview(){
   preview=null;[1,2,3,4].forEach(g=>$("i"+g).textContent="…");
   if(!current)return;
+  const cardId=current.id;
   try{
-    const r=await api("/api/preview",{method:"POST",body:JSON.stringify({cardId:current.id})});
+    const r=await api("/api/preview",{method:"POST",body:JSON.stringify({cardId})});
+    if(current?.id!==cardId)return;
     preview=r.preview;
     $("i1").textContent=formatInterval(preview.again.due);
     $("i2").textContent=formatInterval(preview.hard.due);
     $("i3").textContent=formatInterval(preview.good.due);
     $("i4").textContent=formatInterval(preview.easy.due);
-  }catch(e){[1,2,3,4].forEach(g=>$("i"+g).textContent="online");}
+  }catch(e){if(current?.id===cardId)[1,2,3,4].forEach(g=>$("i"+g).textContent="online");}
 }
 function next(){
   stats();
@@ -300,10 +350,16 @@ function next(){
     return String(ad).localeCompare(String(bd));
   });
   current=cards[0]||null;
-  if(!current){$("study").classList.add("hide");$("done").classList.remove("hide");return}
+  if(!current){
+    $("study").classList.add("hide");$("done").classList.remove("hide");
+    const empty=currentDeckCards().length===0;
+    $("doneTitle").textContent=empty?"Ainda não há cartões aqui":"Revisões concluídas 🎉";
+    $("doneText").textContent=empty?"Use Organizar matérias para mover cartões para esta categoria.":"Nenhum cartão pendente em "+(categoryId==='@general'?pathLabel(deckId)+" › Geral":pathLabel(categoryId||deckId))+" agora.";
+    return;
+  }
   $("study").classList.remove("hide");$("done").classList.add("hide");
   const s=stateOf(current);
-  $("tag").textContent=isNew(current)?"Novo":"Revisão "+(s.reps||0);
+  $("tag").textContent=pathLabel(current.deck_id)+" • "+(isNew(current)?"Novo":"Revisão "+(s.reps||0));
   const frontRich=isRichCard(current.front);
   const backRich=isRichCard(current.back);
   $("front").classList.toggle("rich",frontRich);
@@ -314,12 +370,32 @@ function next(){
   loadPreview();
 }
 function renderDecks(){
-  $("deck").innerHTML=data.decks.map(d=>'<option value="'+d.id+'">'+d.name+'</option>').join("");
-  if(!deckId||!data.decks.some(d=>d.id===deckId))deckId=data.decks[0]?.id||null;
+  const subjects=roots(data.decks);
+  if(!subjects.some(d=>d.id===deckId))deckId=subjects[0]?.id||null;
+  if(categoryId&&categoryId!=='@general'&&(!data.decks.some(d=>d.id===categoryId)||!descendants(data.decks,deckId).has(categoryId)||categoryId===deckId))categoryId=null;
+  if(categoryId==='@general'&&!data.cards.some(c=>c.deck_id===deckId))categoryId=null;
+  $("deck").innerHTML=subjects.map(d=>'<option value="'+escapeHtml(d.id)+'">'+escapeHtml(d.name)+'</option>').join("");
   $("deck").value=deckId||"";
+  renderCategories();saveSelection();
+}
+function renderCategories(){
+  const ids=descendants(data.decks,deckId);
+  const children=orderedDecks(data.decks).filter(d=>d.id!==deckId&&ids.has(d.id));
+  const options=[{id:"",label:"Tudo",cards:scopedCards(data,deckId)}];
+  const direct=data.cards.filter(c=>c.deck_id===deckId);
+  if(children.length&&direct.length)options.push({id:"@general",label:"Geral",cards:direct});
+  for(const d of children)options.push({id:d.id,label:deckPath(data.decks,d.id).slice(1).map(x=>x.name).join(" › "),cards:scopedCards(data,deckId,d.id)});
+  $("categories").innerHTML=options.map(o=>{
+    const pending=o.cards.filter(c=>isNew(c)||isDue(c)).length;
+    return '<button class="category" type="button" data-category="'+escapeHtml(o.id)+'" aria-pressed="'+((categoryId||"")===o.id)+'">'+escapeHtml(o.label)+'<small>'+pending+'</small></button>';
+  }).join("");
+  const count=currentDeckCards().length;
+  $("scopeNote").textContent=(categoryId?(categoryId==='@general'?"Cartões gerais desta matéria":pathLabel(categoryId)):"Toda a matéria, incluindo suas subcategorias")+" • "+count+" cart"+(count===1?"ão":"ões")+". Os números nas abas mostram os cartões pendentes.";
 }
 async function load(){
+  if(reviewing||organizing)return;
   hideNotice();setCloud("sincronizando…");
+  cloudMode=false;fallbackMode=false;
   try{
     data=await api("/api/cards");
     cloudMode=true;fallbackMode=false;
@@ -330,7 +406,8 @@ async function load(){
   }catch(e){
     const cached=localStorage.getItem(CACHE_KEY);
     if(cached){
-      data=JSON.parse(cached);setCloud("modo offline",false);
+      try{data=JSON.parse(cached)}catch{data=fallbackData();fallbackMode=true}
+      setCloud("modo offline",false);
       showNotice("Sem conexão com a nuvem. Mostrando o último conteúdo salvo neste aparelho.",true);
     }else{
       data=fallbackData();fallbackMode=true;cloudMode=false;
@@ -368,23 +445,95 @@ function localGrade(g){
   data=fallbackData();renderDecks();setCloud("salvo neste iPhone");next();
 }
 async function grade(g){
-  if(!current)return;
+  if(!current||reviewing)return;
   if(fallbackMode){localGrade(g);return}
+  const reviewedCard=current;
+  reviewing=true;$("deck").disabled=true;$("organize").disabled=true;$("refresh").disabled=true;
   document.querySelectorAll("[data-g]").forEach(b=>b.disabled=true);
   try{
-    const r=await api("/api/review",{method:"POST",body:JSON.stringify({cardId:current.id,grade:g})});
-    current.review={card_id:current.id,fsrs_card:r.card,last_grade:g,updated_at:new Date().toISOString()};
+    const r=await api("/api/review",{method:"POST",body:JSON.stringify({cardId:reviewedCard.id,grade:g})});
+    reviewedCard.review={card_id:reviewedCard.id,fsrs_card:r.card,last_grade:g,updated_at:new Date().toISOString()};
     data.reviewDates.unshift(new Date().toISOString());
     localStorage.setItem(CACHE_KEY,JSON.stringify(data));
     setCloud("salvo ✓");
     next();
   }catch(e){
     showNotice("Não consegui salvar esta resposta: "+e.message,true);setCloud("não salvo",false);
-  }finally{document.querySelectorAll("[data-g]").forEach(b=>b.disabled=false)}
+  }finally{reviewing=false;$("deck").disabled=false;$("organize").disabled=false;$("refresh").disabled=false;document.querySelectorAll("[data-g]").forEach(b=>b.disabled=false)}
 }
+function deckOptions(excluded=new Set()){
+  return orderedDecks(data.decks).filter(d=>!excluded.has(d.id)).map(d=>'<option value="'+escapeHtml(d.id)+'">'+escapeHtml(pathLabel(d.id))+'</option>').join("");
+}
+function populateOrganizer(){
+  const options=deckOptions();
+  $("categoryParent").innerHTML='<option value="">Nenhuma — criar matéria</option>'+options;
+  $("categoryParent").value=categoryId&&categoryId!=='@general'?categoryId:deckId||"";
+  $("editDeck").innerHTML=options;$("editDeck").value=categoryId&&categoryId!=='@general'?categoryId:deckId||"";renderEdit();
+  $("moveSource").innerHTML=options;$("moveSource").value=categoryId&&categoryId!=='@general'?categoryId:deckId||"";
+  renderMoveCards();
+}
+function renderEdit(){
+  const deck=data.decks.find(d=>d.id===$("editDeck").value);
+  $("editName").value=deck?.name||"";
+  $("editParent").innerHTML='<option value="">Nenhuma — matéria principal</option>'+deckOptions(descendants(data.decks,deck?.id));
+  $("editParent").value=deck?.parent_id||"";
+}
+function renderMoveCards(){
+  const source=$("moveSource").value,cards=data.cards.filter(c=>c.deck_id===source);
+  $("moveTarget").innerHTML=deckOptions(new Set([source]));
+  $("selectAllCards").checked=false;$("selectAllCards").indeterminate=false;$("selectAllCards").disabled=!cards.length;
+  $("moveCardList").innerHTML=cards.length?cards.map(c=>'<label class="card-choice"><input type="checkbox" name="cardId" value="'+escapeHtml(c.id)+'"><span>'+escapeHtml(c.front.slice(0,220))+(c.front.length>220?'…':'')+'</span></label>').join(""):'<p class="muted help" style="padding:12px">Nenhum cartão diretamente nesta categoria. Selecione a subcategoria de origem.</p>';
+  updateMoveCount();
+}
+function updateMoveCount(){
+  const boxes=[...$("moveCardList").querySelectorAll('input[name="cardId"]')],n=boxes.filter(x=>x.checked).length;
+  $("moveCount").textContent=n+" cart"+(n===1?"ão":"ões")+" selecionado"+(n===1?"":"s");
+  $("selectAllCards").checked=!!boxes.length&&n===boxes.length;$("selectAllCards").indeterminate=n>0&&n<boxes.length;
+  $("moveSubmit").disabled=!n||!$("moveTarget").value||organizing;
+}
+function organizerMessage(message,error=false){
+  $("organizerStatus").textContent=message;$("organizerStatus").classList.remove("hide");$("organizerStatus").classList.toggle("error",error);
+}
+async function organizeRequest(route,body,onSuccess){
+  if(organizing)return;
+  if(!cloudMode){organizerMessage("Conecte-se à nuvem e toque em Atualizar para salvar a organização.",true);return}
+  organizing=true;
+  $("organizer").querySelectorAll('button,input,select').forEach(el=>el.disabled=true);
+  try{
+    const result=await api(route,{method:"POST",body:JSON.stringify(body)});
+    onSuccess(result);
+    localStorage.setItem(CACHE_KEY,JSON.stringify(data));
+    renderDecks();next();populateOrganizer();
+    organizerMessage("Organização salva na nuvem.");setCloud("sincronizado");
+  }catch(e){organizerMessage("Não consegui salvar: "+e.message,true)}
+  finally{organizing=false;$("organizer").querySelectorAll('button,input,select').forEach(el=>el.disabled=false);updateMoveCount();$("selectAllCards").disabled=!$("moveCardList").querySelector('input')}
+}
+$("organize").onclick=()=>{if(reviewing)return;populateOrganizer();$("organizerStatus").classList.add("hide");$("organizer").showModal()};
+$("closeOrganizer").onclick=()=>$("organizer").close();
+$("organizer").addEventListener("cancel",e=>{if(organizing)e.preventDefault()});
+$("createCategory").onsubmit=e=>{
+  e.preventDefault();const name=$("categoryName").value.trim(),parentId=$("categoryParent").value||null;
+  if(!name)return;
+  organizeRequest("/api/decks",{action:"create",name,parentId},r=>{data.decks.push(r.deck);$("categoryName").value="";if(!parentId){deckId=r.deck.id;categoryId=null}});
+};
+$("editDeck").onchange=renderEdit;
+$("editCategory").onsubmit=e=>{
+  e.preventDefault();const id=$("editDeck").value,name=$("editName").value.trim(),parentId=$("editParent").value||null;
+  if(!name)return;
+  organizeRequest("/api/decks",{action:"update",id,name,parentId},r=>{const idx=data.decks.findIndex(d=>d.id===id);data.decks[idx]=r.deck});
+};
+$("moveSource").onchange=renderMoveCards;$("moveTarget").onchange=updateMoveCount;
+$("moveCardList").onchange=updateMoveCount;
+$("selectAllCards").onchange=()=>{$("moveCardList").querySelectorAll('input').forEach(x=>x.checked=$("selectAllCards").checked);updateMoveCount()};
+$("moveCards").onsubmit=e=>{
+  e.preventDefault();const cardIds=[...$("moveCardList").querySelectorAll('input:checked')].map(x=>x.value),deckId=$("moveTarget").value;
+  if(!cardIds.length||!deckId)return;
+  organizeRequest("/api/move-cards",{cardIds,deckId},r=>{for(const moved of r.cards){const c=data.cards.find(x=>x.id===moved.id);if(c)c.deck_id=moved.deck_id}});
+};
 $("show").onclick=()=>{$("back").classList.remove("hide");$("grades").classList.remove("hide");$("show").classList.add("hide")};
 document.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>grade(+b.dataset.g));
-$("deck").onchange=e=>{deckId=e.target.value;next()};
+$("deck").onchange=e=>{deckId=e.target.value;categoryId=null;saveSelection();next()};
+$("categories").onclick=e=>{const button=e.target.closest('[data-category]');if(!button||reviewing)return;categoryId=button.dataset.category||null;saveSelection();next()};
 $("refresh").onclick=load;
 $("backup").onclick=()=>{
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
