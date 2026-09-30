@@ -19,15 +19,33 @@
     .panel{background:#121a2d;border:1px solid #2a3959;border-radius:20px;padding:16px;margin:12px 0}
     .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
     .stat{background:#0d1527;border-radius:14px;text-align:center;padding:10px}.stat b{display:block;font-size:22px}.stat small{color:#9fb0cc}
-    .card{min-height:330px;background:#111a2e;border:1px solid #30466f;border-radius:22px;padding:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-    .tag{color:#9fb0cc;font-size:13px;margin-bottom:18px}.front{font-size:31px;font-weight:800}.back{font-size:22px;margin-top:20px;color:#dfe7f5;white-space:pre-line}
+    .card{min-height:330px;background:#111a2e;border:1px solid #30466f;border-radius:22px;padding:26px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start}
+    .tag{color:#9fb0cc;font-size:13px;margin-bottom:18px;text-align:center}
+    .front{font-size:31px;font-weight:800;text-align:center}
+    .back{font-size:18px;margin-top:20px;color:#dfe7f5;text-align:left}
+    .front.rich{font-size:17px;font-weight:400;text-align:left}
+    .back.rich{font-size:16.5px;font-weight:400;text-align:left}
+    .md{width:100%;line-height:1.58;overflow-wrap:anywhere}
+    .md h1,.md h2,.md h3{line-height:1.25;margin:0 0 14px;color:#f8fafc}
+    .md h1{font-size:1.55em}.md h2{font-size:1.3em}.md h3{font-size:1.12em}
+    .md p{margin:0 0 14px}
+    .md ul,.md ol{margin:8px 0 16px;padding-left:24px}
+    .md li{margin:5px 0}
+    .md blockquote{margin:14px 0;padding:10px 14px;border-left:4px solid #7c9cff;background:#17233b;border-radius:0 10px 10px 0;color:#e5ecf8}
+    .md hr{border:0;border-top:1px solid #314465;margin:20px 0}
+    .md code:not(pre code){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#18243b;border:1px solid #2e4162;padding:2px 6px;border-radius:6px;font-size:.92em}
+    .md pre{margin:14px 0 18px;overflow-x:auto;background:#09111f;border:1px solid #2b3c59;border-radius:14px;padding:14px 15px;text-align:left}
+    .md pre code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;line-height:1.55;white-space:pre;color:#e8eef8}
+    .code-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#93a4bf;margin-bottom:8px}
+    .sql-kw{color:#9db7ff;font-weight:700}
+    .card-note{margin-top:18px;padding-top:12px;border-top:1px solid #2b3c59;color:#91a3bf;font-size:12px;font-weight:400;text-align:left}
     button,select{font:inherit}select{width:100%;padding:12px;background:#1a2741;color:#fff;border:1px solid #314465;border-radius:12px}
     .primary{width:100%;margin-top:10px;padding:14px;border:0;border-radius:14px;background:#7c9cff;color:#071127;font-weight:800}
     .grades{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.grades button{padding:10px 5px;border-radius:12px;background:#1c2942;color:white;border:1px solid #415476;font-weight:700}.grades small{display:block;color:#b7c3d7;margin-top:4px;min-height:14px}
     .hide{display:none!important}.muted{color:#9fb0cc}.row{display:flex;gap:8px}.ghost{flex:1;padding:12px;border-radius:12px;background:#111a2d;color:#fff;border:1px solid #30415f}
     .notice{font-size:13px;background:#18223a;border:1px solid #33476e;border-radius:14px;padding:12px;margin:10px 0;color:#c8d4e8}
     .error{background:#351a21;border-color:#713342;color:#ffd0d7}.loading{text-align:center;padding:46px 10px;color:#9fb0cc}
-    @media(max-width:440px){.grades{grid-template-columns:repeat(2,1fr)}.front{font-size:28px}}
+    @media(max-width:440px){.grades{grid-template-columns:repeat(2,1fr)}.front{font-size:28px}.front.rich{font-size:16px}.back.rich{font-size:16px}.card{padding:20px}.md pre code{font-size:13px}}
   </style>
 </head>
 <body>
@@ -165,6 +183,74 @@ function showNotice(text,error=false){
   if(error)$("notice").classList.add("error");
 }
 function hideNotice(){$("notice").classList.add("hide")}
+function escapeHtml(value){
+  return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+}
+function inlineMarkdown(text){
+  let s=escapeHtml(text);
+  const code=[];
+  s=s.replace(/`([^`\n]+)`/g,(_,x)=>{const k="@@CODE"+code.length+"@@";code.push("<code>"+x+"</code>");return k});
+  s=s.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+  s=s.replace(/__([^_]+)__/g,"<strong>$1</strong>");
+  s=s.replace(/\*([^*\n]+)\*/g,"<em>$1</em>");
+  s=s.replace(/_([^_\n]+)_/g,"<em>$1</em>");
+  code.forEach((v,i)=>{s=s.replace("@@CODE"+i+"@@",v)});
+  return s;
+}
+function highlightSql(code){
+  const escaped=escapeHtml(code);
+  return escaped.replace(/\b(SELECT|FROM|WHERE|INNER|LEFT|RIGHT|FULL|JOIN|ON|AS|CREATE|VIEW|AND|OR|NOT|NULL|GROUP|BY|ORDER|HAVING|DISTINCT|INSERT|UPDATE|DELETE|INTO|VALUES|UNION|ALL|CASE|WHEN|THEN|ELSE|END|EXISTS|IN|IS)\b/gi,'<span class="sql-kw">$1</span>');
+}
+function renderMarkdown(markdown){
+  const lines=String(markdown??"").replace(/\r\n?/g,"\n").split("\n");
+  const out=[];
+  let i=0;
+  while(i<lines.length){
+    const line=lines[i];
+    if(/^\s*```/.test(line)){
+      const lang=line.replace(/^\s*```/,"").trim().toLowerCase();
+      const buf=[]; i++;
+      while(i<lines.length&&!/^\s*```/.test(lines[i])){buf.push(lines[i]);i++}
+      if(i<lines.length)i++;
+      const body=lang==="sql"?highlightSql(buf.join("\n")):escapeHtml(buf.join("\n"));
+      out.push('<pre><div class="code-label">'+escapeHtml(lang||"código")+'</div><code>'+body+'</code></pre>');
+      continue;
+    }
+    if(/^\s*$/.test(line)){i++;continue}
+    if(/^\s*---+\s*$/.test(line)){out.push("<hr>");i++;continue}
+    const h=line.match(/^\s*(#{1,3})\s+(.+)$/);
+    if(h){const n=h[1].length;out.push("<h"+n+">"+inlineMarkdown(h[2])+"</h"+n+">");i++;continue}
+    if(/^\s*>\s?/.test(line)){
+      const buf=[];
+      while(i<lines.length&&/^\s*>\s?/.test(lines[i])){buf.push(lines[i].replace(/^\s*>\s?/,""));i++}
+      out.push("<blockquote>"+buf.map(x=>inlineMarkdown(x)).join("<br>")+"</blockquote>");
+      continue;
+    }
+    if(/^\s*[-*]\s+/.test(line)){
+      const items=[];
+      while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*[-*]\s+/,""));i++}
+      out.push("<ul>"+items.map(x=>"<li>"+inlineMarkdown(x)+"</li>").join("")+"</ul>");
+      continue;
+    }
+    if(/^\s*\d+\.\s+/.test(line)){
+      const items=[];
+      while(i<lines.length&&/^\s*\d+\.\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*\d+\.\s+/,""));i++}
+      out.push("<ol>"+items.map(x=>"<li>"+inlineMarkdown(x)+"</li>").join("")+"</ol>");
+      continue;
+    }
+    const para=[line]; i++;
+    while(i<lines.length&&!/^\s*$/.test(lines[i])&&!/^\s*```/.test(lines[i])&&!/^\s*(#{1,3})\s+/.test(lines[i])&&!/^\s*>\s?/.test(lines[i])&&!/^\s*[-*]\s+/.test(lines[i])&&!/^\s*\d+\.\s+/.test(lines[i])&&!/^\s*---+\s*$/.test(lines[i])){
+      para.push(lines[i]);i++;
+    }
+    out.push("<p>"+inlineMarkdown(para.join(" "))+"</p>");
+  }
+  return out.join("");
+}
+function isRichCard(text){
+  const s=String(text||"");
+  return s.length>180 || /(^|\n)\s*(#{1,3}\s|\`\`\`|>\s|[-*]\s|\d+\.\s)|\*\*/m.test(s);
+}
+
 function stateOf(c){return c.review?.fsrs_card||null}
 function isNew(c){const s=stateOf(c);return !s||!s.reps}
 function isDue(c){const s=stateOf(c);return s&&new Date(s.due).getTime()<=Date.now()}
@@ -218,8 +304,12 @@ function next(){
   $("study").classList.remove("hide");$("done").classList.add("hide");
   const s=stateOf(current);
   $("tag").textContent=isNew(current)?"Novo":"Revisão "+(s.reps||0);
-  $("front").textContent=current.front;
-  $("back").textContent=current.back+(current.note?"\n"+current.note:"");
+  const frontRich=isRichCard(current.front);
+  const backRich=isRichCard(current.back);
+  $("front").classList.toggle("rich",frontRich);
+  $("back").classList.toggle("rich",backRich);
+  $("front").innerHTML='<div class="md">'+renderMarkdown(current.front)+'</div>';
+  $("back").innerHTML='<div class="md">'+renderMarkdown(current.back)+'</div>'+(current.note?'<div class="card-note">'+escapeHtml(current.note)+'</div>':'');
   $("back").classList.add("hide");$("grades").classList.add("hide");$("show").classList.remove("hide");
   loadPreview();
 }
