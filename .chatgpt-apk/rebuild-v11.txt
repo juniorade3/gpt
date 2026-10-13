@@ -1,0 +1,1 @@
+Rebuild Minha Estante v1.1 after fixing readerStage initialization bug.
