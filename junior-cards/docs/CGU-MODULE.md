@@ -27,3 +27,9 @@ Gap grouping is a view of this module's evidence, not a migration of the existin
 npm test covers existing hierarchy behavior and new score, classification, eligibility and API validation. SQL assertions test server grading, idempotence and conflict rejection inside a rolled-back transaction. Browser verification uses three explicitly authorial demonstration items without writing to the user's database history. The existing private access key is not exported, logged or included in fixtures.
 
 No browser-authenticated production round trip was performed without the owner's device access key. Verify it through the existing connected device when available.
+
+## Focus mode and reading theme
+
+In a question block, **Modo foco** hides navigation, score panels and filters. It uses the Fullscreen API when available and keeps the same reading layout when fullscreen is unavailable or denied. The response and confidence are collected before feedback. Confirmed correction, the question's laboratory and **Próxima questão** stay in focus; the last question returns to the summary. **Sair do foco** or Escape restores normal navigation. Optional reasoning and doubts can be expanded before submission. Text size is retained on the device.
+
+The question module uses white and light gray surfaces, dark text and restrained periwinkle blue. Results include text labels and do not rely on green. Existing API, attempt IDs, server timestamps and grading are unchanged. Browser verification uses the isolated authorial demonstration, without sending attempts to production.
