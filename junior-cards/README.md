@@ -2,6 +2,10 @@
 
 Flashcards with FSRS, Markdown, cloud synchronization and subject hierarchies.
 
+## CGU questions and laboratories
+
+Open **Questões CGU e laboratórios** or `questoes.html`. The new module shares the current access key and Supabase function. It preserves flashcards and adds question blocks, confidence, doubts, attempts and visual explanations. See [CGU module documentation](docs/CGU-MODULE.md) for content status, import workflow and verification limits.
+
 ## Study and organization
 
 Select a subject, then use **Tudo** to study its cards and every subcategory. A subcategory includes its own nested categories. **Geral** filters cards assigned directly to the subject, when applicable. Each tab shows the number of new or due cards; the empty state distinguishes an empty category from completed reviews.
@@ -19,3 +23,4 @@ Deployment order: apply the additive hierarchy migration, deploy the updated Sup
 ## Verification
 
 Run `npm test` for subject aggregation, nested category filters, legacy cache compatibility and unchanged FSRS references. Verify the UI at phone and tablet widths and exercise category creation, editing and card movement against authenticated API responses before publishing.
+
