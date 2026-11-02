@@ -56,3 +56,22 @@ dialog{background:var(--card)}
 .focus-mode .result-banner small{font-size:12px;line-height:1.7;margin-top:5px}
 .focus-mode .correction-loading{font-size:18px;color:var(--muted)}
 .focus-mode .feedback .lab{max-width:100%;overflow-x:auto}
+
+/* Original exam identity remains available while studying in focus mode. */
+.exam-provenance{margin:0 0 22px}
+.exam-origin{color:#536186;font-size:12px;line-height:1.7;margin-bottom:8px}
+.source-details{border:1px solid #d5ddec;border-radius:9px;padding:11px 15px;background:#f9faff;margin:0;color:#495875}
+.source-details>summary{font-size:12px;font-weight:600;line-height:1.8}
+.source-verified{margin-left:8px;font-size:10px;font-weight:400;color:#6172a0}
+.source-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 22px;margin:20px 0}
+.source-grid>div{min-width:0}.source-grid dt{font-size:10px;color:#65718a;margin-bottom:3px}
+.source-grid dd{margin:0;font-size:12px;color:#29364e;overflow-wrap:anywhere;line-height:1.65}
+.source-location{font-size:11px!important;line-height:1.7;color:#63708a!important}
+.source-details .contest-header p{white-space:pre-line;font-size:12px;color:#43506b}
+.bank-raw{font:12px/1.7 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#44516c}
+.statement>p{margin:0 0 18px;white-space:normal;font-size:inherit;color:inherit;line-height:inherit}.statement>p:last-child{margin-bottom:0}
+.original-code{background:#eef1f9;border:1px solid #d4ddef;border-radius:9px;color:#2e3f64;padding:18px 20px;overflow:auto;white-space:pre;font:14px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;max-width:100%;margin:20px 0}
+.original-code.numbered{padding-left:52px;list-style:decimal}.original-code li{padding-left:9px;min-height:1.8em;white-space:pre}.original-code li::marker{color:#7a86a2;font-size:12px}
+.focus-mode .exam-provenance{margin:0 0 24px}.focus-mode .exam-origin{font-size:12px}.focus-mode .feedback>.exam-provenance{margin-top:16px}
+.focus-mode .focus-recall>p{white-space:normal}
+@media(max-width:620px){.source-grid{grid-template-columns:1fr;gap:12px}.source-verified{display:block;margin-left:13px}.original-code{font-size:12px;padding:14px}.original-code.numbered{padding-left:42px}.exam-origin{font-size:11px}}

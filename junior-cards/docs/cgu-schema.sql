@@ -3,7 +3,7 @@ create table if not exists public.cgu_blocks(
  id text primary key,title text not null,description text not null default '',status text not null default 'draft' check(status in('draft','ready','pending_original')),expected_count integer not null default 100,created_at timestamptz not null default now()
 );
 create table if not exists public.cgu_questions(
- id text primary key,topic text not null,subtopic text,subject text not null,year integer,organization text,book text,item integer,statement text not null,context text not null default '',source text,page integer,key_source text,kind text not null default 'official' check(kind in('official','authorial')),difficulty text not null default 'Não calibrada',lab text,version integer not null default 1,answer text not null check(answer in('C','E')),explanation jsonb not null,created_at timestamptz not null default now()
+ id text primary key,topic text not null,subtopic text,subject text not null,year integer,organization text,book text,item integer,statement text not null,context text not null default '',source text,page integer,key_source text,kind text not null default 'official' check(kind in('official','authorial')),difficulty text not null default 'Não calibrada',lab text,version integer not null default 1,provenance jsonb not null default '{}'::jsonb,answer text not null check(answer in('C','E')),explanation jsonb not null,created_at timestamptz not null default now()
 );
 create table if not exists public.cgu_block_questions(
  block_id text references public.cgu_blocks(id),question_id text references public.cgu_questions(id),position integer not null,primary key(block_id,question_id),unique(block_id,position)

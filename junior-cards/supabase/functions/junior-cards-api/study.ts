@@ -1,5 +1,5 @@
 // All routes are dispatched only AFTER the existing access-key authentication.
-const questionFields='id,topic,subtopic,subject,year,organization,book,item,statement,context,source,page,key_source,kind,difficulty,lab,version';
+const questionFields='id,topic,subtopic,subject,year,organization,book,item,statement,context,source,page,key_source,kind,difficulty,lab,version,provenance';
 export async function handleStudy(req:Request,db:any,json:any){
  try{
   if(req.method==='GET'){

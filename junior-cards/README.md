@@ -4,7 +4,7 @@ Flashcards with FSRS, Markdown, cloud synchronization and subject hierarchies.
 
 ## CGU questions and laboratories
 
-Open **Questões CGU e laboratórios** or `questoes.html`. The new module shares the current access key and Supabase function. It preserves flashcards and adds question blocks, confidence, doubts, attempts and visual explanations. See [CGU module documentation](docs/CGU-MODULE.md) for content status, import workflow and verification limits.
+Open **Questões CGU e laboratórios** or `questoes.html`. The module shares the current access key and Supabase function. Each official item has a source panel with its original board, agency, job, exam date, notice year, booklet, item number, PDF page and Drive references; the 100 active items and definitive keys were checked against the original PDFs on 2026-11-02. It preserves flashcards and adds question blocks, confidence, doubts, attempts and visual explanations. See [CGU module documentation](docs/CGU-MODULE.md) for content status, import workflow and verification limits.
 
 ## Study and organization
 
