@@ -7,35 +7,47 @@ const validUuid = (value: unknown) => typeof value === 'string' && /^[0-9a-f]{8}
 export async function handleRevision(req: Request, db: any, json: (data: any, status?: number) => Response) {
  try {
   if (req.method === 'GET') {
-   const [blocks,concepts,links,assignments,questions,states,events,attempts] = await Promise.all([
+   const paged = async (getPage: (from: number,to:number)=>Promise<any>, maxPages=12) => {
+    const rows:any[]=[];
+    for(let page=0;page<maxPages;page++){
+     const {data,error}=await getPage(page*500,(page+1)*500-1);
+     if(error)throw error;
+     rows.push(...(data||[]));
+     if((data||[]).length<500)return rows;
+    }
+    if(maxPages===4)return rows; // limited evidence window; older rows stay intact in Postgres
+    throw new Error('catalog_page_limit_reached');
+   };
+   const [blocks,concepts,links,assignments,questions,states,events,attempts,syllabus] = await Promise.all([
     db.from('cgu_blocks').select('id').eq('status','ready'),
-    db.from('cgu_concepts').select('id,topic,title,description').order('topic').order('title'),
-    db.from('cgu_concept_questions').select('concept_id,question_id'),
-    db.from('cgu_block_questions').select('block_id,question_id,position').order('position'),
-    db.from('cgu_questions').select(questionFields),
-    db.from('cgu_revision_state').select('concept_id,stage,due_at,interval_days,spaced_successes,lapses,last_question_id,last_reviewed_at'),
-    db.from('cgu_revision_events').select('attempt_id,concept_id,question_id,response,confidence,is_correct,recognized,spaced,qualified,transfer,stage,interval_days,next_due_at,created_at').order('created_at',{ascending:false}).limit(2000),
-    db.from('cgu_attempts').select('id,question_id,created_at').order('created_at',{ascending:false}).limit(2000)
+    paged((a,b)=>db.from('cgu_concepts').select('id,topic,title,description').order('id').range(a,b)),
+    paged((a,b)=>db.from('cgu_concept_questions').select('concept_id,question_id').order('question_id').range(a,b)),
+    paged((a,b)=>db.from('cgu_block_questions').select('block_id,question_id,position').order('question_id').order('block_id').range(a,b)),
+    paged((a,b)=>db.from('cgu_questions').select(questionFields).order('id').range(a,b)),
+    paged((a,b)=>db.from('cgu_revision_state').select('concept_id,stage,due_at,interval_days,spaced_successes,lapses,last_question_id,last_reviewed_at').order('concept_id').range(a,b)),
+    paged((a,b)=>db.from('cgu_revision_events').select('attempt_id,concept_id,question_id,response,confidence,is_correct,recognized,spaced,qualified,transfer,stage,interval_days,next_due_at,created_at').order('created_at',{ascending:false}).order('attempt_id').range(a,b),4),
+    paged((a,b)=>db.from('cgu_attempts').select('id,question_id,created_at').order('created_at',{ascending:false}).order('id').range(a,b),4),
+    db.from('cgu_syllabus_topics').select('code,title').order('code')
    ]);
-   const error = [blocks,concepts,links,assignments,questions,states,events,attempts].find(x=>x.error)?.error;
-   if (error) throw error;
+   if(blocks.error||syllabus.error)throw blocks.error||syllabus.error;
    const ready = new Set((blocks.data||[]).map((b:any)=>b.id));
-   const eligibleAssignments = (assignments.data||[]).filter((x:any)=>ready.has(x.block_id));
+   const eligibleAssignments = assignments.filter((x:any)=>ready.has(x.block_id));
    const byQuestion = new Map<string, any>();
    for (const item of eligibleAssignments) if (!byQuestion.has(item.question_id)) byQuestion.set(item.question_id,item);
    const eligibleIds = new Set(byQuestion.keys());
-   const eligibleLinks = (links.data||[]).filter((link:any)=>eligibleIds.has(link.question_id));
+   const eligibleLinks = links.filter((link:any)=>eligibleIds.has(link.question_id));
    const eligibleConcepts = new Set(eligibleLinks.map((link:any)=>link.concept_id));
    return json({
-    concepts:(concepts.data||[]).filter((c:any)=>eligibleConcepts.has(c.id)),
+    concepts:concepts.filter((c:any)=>eligibleConcepts.has(c.id)),
     links:eligibleLinks,
-    questions:(questions.data||[]).filter((q:any)=>eligibleIds.has(q.id)).map((q:any)=>({
+    questions:questions.filter((q:any)=>eligibleIds.has(q.id)).map((q:any)=>({
       ...q,block_id:byQuestion.get(q.id).block_id,position:byQuestion.get(q.id).position
     })),
-    states:(states.data||[]).filter((s:any)=>eligibleConcepts.has(s.concept_id)),
-    events:(events.data||[]).filter((e:any)=>eligibleConcepts.has(e.concept_id)),
-    recentAttempts:(attempts.data||[]).filter((a:any)=>eligibleIds.has(a.question_id)),
-    historyTruncated:(events.data||[]).length===2000 || (attempts.data||[]).length===2000,
+    states:states.filter((s:any)=>eligibleConcepts.has(s.concept_id)),
+    events:events.filter((e:any)=>eligibleConcepts.has(e.concept_id)),
+    recentAttempts:attempts.filter((a:any)=>eligibleIds.has(a.question_id)),
+    syllabus:syllabus.data||[],
+    historyTruncated:events.length===2000 || attempts.length===2000,
     serverTime:new Date().toISOString()
    });
   }

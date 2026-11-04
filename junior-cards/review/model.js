@@ -19,12 +19,32 @@ export function selectVariant(conceptId,links,questions,attempts=[],state=null){
  return variants[0]||null;
 }
 
-export function buildOverview(data,now=new Date()){
+export const matterTitles={
+ 'B1':'Estado, democracia e instituições','B2':'Sociedade brasileira','B3':'Ética pública',
+ 'B4':'Administração e gestão pública','C1':'Integridade, governança e riscos',
+ 'C2':'Transparência e ouvidoria','C3':'Processo e responsabilização',
+ 'C4':'Análise e uso de informações','C5':'Auditoria e controle interno',
+ 'I1':'Redes, sistemas e dados','I2':'Infraestrutura e nuvem',
+ 'I3':'Segurança, privacidade e continuidade','I4':'Gestão e infraestrutura de TIC'
+};
+export function reviewScope(question,scope={}){
+ const code=question.topic||'';
+ if(scope.matter&&scope.matter!=='all'&&!code.startsWith(scope.matter+'.'))return false;
+ if(scope.topic&&scope.topic!=='all'&&code!==scope.topic)return false;
+ if(scope.subtopic&&scope.subtopic!=='all'&&question.subtopic!==scope.subtopic)return false;
+ if(scope.year&&scope.year!=='all'&&String(question.year)!==String(scope.year))return false;
+ const adherence=question.provenance?.adherence;
+ if(scope.adherence==='direct'&&adherence==='Parcial')return false;
+ if(scope.adherence==='partial'&&adherence!=='Parcial')return false;
+ return true;
+}
+export function buildOverview(data,now=new Date(),scope={}){
  const states=new Map((data.states||[]).map(s=>[s.concept_id,s]));
- const summary={due:[],fresh:[],future:[],total:0,spacedAttempts:0,spacedCorrect:0,transferEvidence:0};
+ const summary={due:[],fresh:[],future:[],mixed:[],gaps:[],total:0,spacedAttempts:0,spacedCorrect:0,transferEvidence:0};
+ const scopedQuestions=(data.questions||[]).filter(q=>reviewScope(q,scope));
  for(const c of data.concepts||[]){
   const s=states.get(c.id)||null;
-  const q=selectVariant(c.id,data.links||[],data.questions||[],data.recentAttempts||[],s);
+  const q=selectVariant(c.id,data.links||[],scopedQuestions,data.recentAttempts||[],s);
   if(!q)continue;
   const item={...c,question:q,state:s};
   if(!s)summary.fresh.push(item);
@@ -39,7 +59,11 @@ export function buildOverview(data,now=new Date()){
  });
  summary.fresh.sort((a,b)=>a.topic.localeCompare(b.topic)||a.title.localeCompare(b.title));
  summary.future.sort(order);
- const revisits=(data.events||[]).filter(e=>e.spaced);
+ summary.gaps=summary.due.filter(x=>x.state?.stage==='learning'||x.state?.lapses>0);
+ const a=summary.due,b=summary.fresh;
+ for(let i=0;i<Math.max(a.length,b.length);i++){if(a[i])summary.mixed.push(a[i]);if(b[i])summary.mixed.push(b[i]);}
+ const scopedQuestionIds=new Set(scopedQuestions.map(q=>q.id));
+ const revisits=(data.events||[]).filter(e=>e.spaced&&scopedQuestionIds.has(e.question_id));
  summary.spacedAttempts=revisits.length;
  summary.spacedCorrect=revisits.filter(e=>e.is_correct).length;
  summary.transferEvidence=revisits.filter(e=>e.transfer).length;
