@@ -90,7 +90,7 @@ function correction(){
 }
 function history(){
  if(!data)return dashboard();
- const o=overview(),events=(data.events||[]).slice(0,150),names=new Map(data.concepts.map(c=>[c.id,c]));
+ const o=overview(),scopedIds=new Set(data.questions.filter(q=>reviewScope(q,scope)).map(q=>q.id)),events=(data.events||[]).filter(e=>scopedIds.has(e.question_id)).slice(0,150),names=new Map(data.concepts.map(c=>[c.id,c]));
  const spaced=o.spacedAttempts?Math.round(100*o.spacedCorrect/o.spacedAttempts)+'%':'Sem evidência suficiente';
  return '<div class="review-history">'+intro('Evidências de aprendizagem.','O histórico distingue acerto imediato, retorno espaçado e transferência entre enunciados.')+
  '<div class="review-metrics"><div class="review-metric"><strong>'+events.length+'</strong><span>Eventos exibidos</span><small>Mais recentes no banco</small></div><div class="review-metric"><strong>'+o.spacedAttempts+'</strong><span>Retornos espaçados</span><small>Revisões em dias diferentes</small></div><div class="review-metric"><strong>'+o.transferEvidence+'</strong><span>Transferências seguras</span><small>Enunciados diferentes</small></div><div class="review-metric"><strong style="font-size:19px">'+spaced+'</strong><span>Retenção observada</span><small>Sem inferir domínio universal</small></div></div>'+
