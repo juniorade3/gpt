@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f6f7fb"><title>Revisão Inteligente · Junior Cards</title>
+<link rel="icon" href="icon.svg"><link rel="stylesheet" href="study/style.css">
+<link rel="stylesheet" href="review/style.css">
+</head><body>
+<div class="shell review-shell">
+ <aside class="sidebar">
+  <a class="brand" href="index.html"><span class="brand-icon">j<span>c</span></span><span>Junior Cards<small>Seu conhecimento, em prática.</small></span></a>
+  <div class="workspace"><span class="status-dot"></span> Revisão inteligente · CGU</div>
+  <nav aria-label="Navegação">
+   <button class="nav active" data-action="home">◫ <span>Painel de revisão</span></button>
+   <button class="nav" data-action="history">◷ <span>Histórico espaçado</span></button>
+   <a class="nav-link" href="questoes.html">▤ <span>Questões CGU</span></a>
+   <a class="nav-link" href="index.html">▦ <span>Flashcards</span></a>
+  </nav>
+  <div class="review-side-bottom"><span class="eyebrow">UMA INFORMAÇÃO IMPORTANTE</span><p>Acerto imediato não é prova de retenção. O sistema mede retornos em dias diferentes e procura variar os enunciados.</p></div>
+ </aside>
+ <div class="main-shell">
+  <header class="topbar">
+   <span><span class="muted">Meu espaço</span><span class="slash"> / </span><b id="breadcrumb">Revisão inteligente</b></span>
+   <div class="top-actions"><span class="save-state" id="saveState" role="status" aria-live="polite">Conectando</span><button id="connect" class="icon-button" title="Configurar chave de acesso" aria-label="Conectar">⚙</button></div>
+  </header>
+  <main id="reviewMain" tabindex="-1"><div class="loading">Carregando sua revisão…</div></main>
+  <footer>Junior Cards · Revisão por conceito <span>Questões oficiais · Gabarito confirmado no servidor</span></footer>
+ </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="connectionDialog">
+ <form id="connectionForm">
+  <span class="eyebrow">CONEXÃO EXISTENTE</span><h2>Conectar meu caderno</h2>
+  <p>Use a mesma chave de acesso dos flashcards e das questões CGU. Nenhuma nova conta é necessária.</p>
+  <label for="keyInput">Chave de acesso</label><input id="keyInput" type="password" autocomplete="off" required>
+  <p class="muted" id="connectError" role="status"></p>
+  <div class="actions"><button type="button" class="secondary" id="closeConnect">Cancelar</button><button type="submit" class="primary">Conectar</button></div>
+ </form>
+</dialog>
+<script type="module" src="review/app.js"></script>
+</body></html>
