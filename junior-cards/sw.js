@@ -1,5 +1,5 @@
-const CACHE='junior-cards-v12';
-const STATIC=['./','index.html','hierarchy.js','manifest.webmanifest','icon.svg','questoes.html','study/app.js','study/style.css','study/model.js','study/labs.js','study/focus.js','study/provenance.js','revisao.html','review/app.js','review/model.js','review/style.css'];
+const CACHE='junior-cards-v13';
+const STATIC=['./','index.html','hierarchy.js','manifest.webmanifest','icon.svg','questoes.html','study/app.js','study/style.css','study/model.js','study/labs.js','study/focus.js','study/provenance.js','revisao.html','review/app.js','review/model.js','review/correction.js','review/style.css'];
 self.addEventListener('install',e=>e.waitUntil(Promise.all([caches.open(CACHE).then(c=>c.addAll(STATIC)),self.skipWaiting()])));
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))])));
 self.addEventListener('fetch',e=>{
