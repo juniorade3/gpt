@@ -126,7 +126,7 @@ function history(){
  const spaced=o.spacedAttempts?Math.round(100*o.spacedCorrect/o.spacedAttempts)+'%':'Sem evidência suficiente';
  return '<div class="review-history">'+intro('Evidências de aprendizagem.','O histórico distingue acerto imediato, retorno espaçado e transferência entre enunciados.')+
  '<div class="review-metrics"><div class="review-metric"><strong>'+events.length+'</strong><span>Eventos exibidos</span><small>Mais recentes no banco</small></div><div class="review-metric"><strong>'+o.spacedAttempts+'</strong><span>Retornos espaçados</span><small>Revisões em dias diferentes</small></div><div class="review-metric"><strong>'+o.transferEvidence+'</strong><span>Transferências seguras</span><small>Enunciados diferentes</small></div><div class="review-metric"><strong style="font-size:19px">'+spaced+'</strong><span>Retenção observada</span><small>Sem inferir domínio universal</small></div></div>'+
- '<div class="section-title"><h2>Linha do tempo</h2><button class="text-button" data-action="export">Exportar histórico →</button></div><div class="card">'+(events.length?events.map(e=>'<div class="review-history-row"><div><span class="review-tag">'+esc(names.get(e.concept_id)?.topic||'CGU')+'</span><br><strong>'+esc(names.get(e.concept_id)?.title||e.concept_id)+'</strong><p>'+(e.is_correct?'Acerto':'Erro ou branco')+' · '+esc(e.confidence)+' · '+esc(labelStage(e.stage))+'</p></div><div style="text-align:right"><span class="pill">'+(e.transfer?'Transferência':e.qualified?'Retenção espaçada':e.spaced?'Retorno inseguro':'Contato de aprendizagem')+'</span><p>'+new Date(e.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})+'</p></div></div>').join(''):'<p>Nenhuma tentativa registrada neste módulo até agora. Ao resolver novas questões, os eventos aparecerão aqui.</p>')+'</div><div class="review-actions"><button class="secondary" data-action="home">← Voltar ao painel</button></div></div>';
+ '<div class="section-title"><h2>Linha do tempo</h2><button class="text-button" data-action="export">Exportar histórico →</button></div><div class="card">'+(events.length?events.map(e=>'<div class="review-history-row"><div><span class="review-tag">'+esc(names.get(e.concept_id)?.topic||'CGU')+'</span><br><strong>'+esc(names.get(e.concept_id)?.title||e.concept_id)+'</strong><p>'+(e.is_correct?'Acerto':'Erro ou branco')+' · '+esc(e.confidence)+' · '+esc(labelStage(e.stage))+'</p></div><div style="text-align:right"><span class="pill">'+(e.transfer?'Transferência':e.qualified?'Retenção espaçada':e.spaced?'Retorno inseguro':'Contato de aprendizagem')+'</span><p>'+new Date(e.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})+'</p><button class="text-button debrief-review-link" type="button" data-action="recap" data-attempt="'+esc(e.attempt_id)+'">Rever correção →</button></div></div>').join(''):'<p>Nenhuma tentativa registrada neste módulo até agora. Ao resolver novas questões, os eventos aparecerão aqui.</p>')+'</div><div class="review-actions"><button class="secondary" data-action="home">← Voltar ao painel</button></div></div>';
 }
 function render(){
  document.body.classList.toggle('review-focus',focus&&screen==='question');
@@ -139,7 +139,36 @@ function choose(type,id=null){
  const items=o[type]||o.due;
  active=id?items.find(x=>x.id===id):items[0];
  if(!active){screen='dashboard';render();return;}
- screen='question';tab=type;feedback=null;render();window.scrollTo({top:0,behavior:'instant'});
+ screen='question';tab=type;feedback=null;recapMode=false;transferAnswer=null;render();window.scrollTo({top:0,behavior:'instant'});
+}
+async function revisitAttempt(attemptId){
+ if(busy||!data)return;
+ const evt=data.events.find(e=>e.attempt_id===attemptId);
+ if(!evt)throw new Error('Esta tentativa não está disponível neste histórico.');
+ const question=data.questions.find(q=>q.id===evt.question_id);
+ const concept=data.concepts.find(c=>c.id===evt.concept_id);
+ if(!question||!concept)throw new Error('Enunciado ou conceito não encontrado no caderno atual.');
+ busy=true;status('Carregando correção salva…');
+ try{
+  const recap=await api({action:'recap',attempt:attemptId});
+  active={...concept,question,state:recap.state};
+  feedback=recap;recapMode=true;transferAnswer=null;screen='question';focus=false;
+  render();window.scrollTo({top:0,behavior:'instant'});
+  status('Correção da tentativa anterior · sem nova resposta');
+ }finally{busy=false;}
+}
+async function copyCorrectionPrompt(){
+ if(!active||!feedback)return;
+ const text=gptCorrectionPrompt({question:active.question,attempt:feedback.attempt,answer:feedback.answer,concept:active,explanation:feedback.explanation});
+ if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);}
+ else{
+  const field=document.createElement('textarea');field.value=text;
+  field.style.position='fixed';field.style.opacity='0';document.body.appendChild(field);
+  field.select();
+  const done=document.execCommand('copy');field.remove();
+  if(!done)throw new Error('Seleção de texto não disponível neste navegador.');
+ }
+ toast('Pedido completo copiado. Abra o GPT e cole na conversa, se necessário.');
 }
 async function sendPending(){
  let latest=null;
@@ -215,11 +244,14 @@ document.addEventListener('click',async event=>{
  const action=button.dataset.action;
  try{
   if(action==='connect'||button.id==='connect'){$('#connectionDialog').showModal();return;}
-  if(action==='home'){screen='dashboard';feedback=null;focus=false;render();return;}
-  if(action==='history'){screen='history';feedback=null;focus=false;render();return;}
+  if(action==='home'){screen='dashboard';feedback=null;recapMode=false;transferAnswer=null;focus=false;render();return;}
+  if(action==='history'){screen='history';feedback=null;recapMode=false;transferAnswer=null;focus=false;render();return;}
   if(action==='tab'){tab=button.dataset.tab;limit=36;render();return;}
   if(action==='show-more'){limit+=36;render();return;}
   if(action==='reset-filters'){scope={matter:'all',topic:'all',subtopic:'all',year:'2026',adherence:'direct'};save('juniorcards-riq-scope-v2',scope);limit=36;render();return;}
+  if(action==='recap'){await revisitAttempt(button.dataset.attempt);return;}
+  if(action==='copy-gpt'){await copyCorrectionPrompt();return;}
+  if(action==='transfer'){if(!feedback||!active)return;transferAnswer=button.dataset.value;render();$('#debriefTransfer')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
   if(action==='start'){choose(button.dataset.type);return;}
   if(action==='practice'){choose(tab,button.dataset.concept);return;}
   if(action==='answer'||action==='confidence'){
@@ -229,7 +261,7 @@ document.addEventListener('click',async event=>{
   if(action==='submit'){await submit();return;}
   if(action==='retry'){await retry();return;}
   if(action==='next'){
-   feedback=null;const remaining=overview()[tab]||overview().due;
+   feedback=null;recapMode=false;transferAnswer=null;const remaining=overview()[tab]||overview().due;
    if(remaining.length)choose(tab);else{screen='dashboard';focus=false;render();}
    return;
   }
