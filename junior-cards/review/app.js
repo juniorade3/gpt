@@ -1,4 +1,4 @@
-import {buildOverview,confidenceOptions,formatDate,labelStage} from './model.js';
+import {buildOverview,confidenceOptions,formatDate,labelStage,reviewScope,matterTitles} from './model.js';
 import {renderStatement,renderExamReference} from '../study/provenance.js';
 
 const API='https://vdqikaysebdondezpeqg.supabase.co/functions/v1/junior-cards-api/revision';
@@ -10,7 +10,8 @@ const save=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
 const todayISO=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
 const dateOf=value=>new Date(value).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
 
-let data=null,screen='dashboard',tab='due',active=null,feedback=null,busy=false,focus=false,loading=false;
+let data=null,screen='dashboard',tab='due',active=null,feedback=null,busy=false,focus=false,loading=false,limit=36;
+let scope=read('juniorcards-riq-scope-v2',{matter:'all',topic:'all',subtopic:'all',year:'2026',adherence:'direct'});
 let font=Number(localStorage.getItem('cgu-font')||1.08);
 document.documentElement.style.setProperty('--reading',font+'rem');
 
@@ -26,26 +27,42 @@ async function api(payload){
   return json;
  }finally{clearTimeout(timeout);}
 }
-function overview(){return data?buildOverview(data):{due:[],fresh:[],future:[],total:0,spacedAttempts:0,spacedCorrect:0,transferEvidence:0};}
+function overview(){return data?buildOverview(data,new Date(),scope):{due:[],fresh:[],future:[],gaps:[],mixed:[],total:0,spacedAttempts:0,spacedCorrect:0,transferEvidence:0};}
 function draftKey(){return DRAFT+active.id+':'+active.question.id;}
 function draft(){return read(draftKey(),{id:crypto.randomUUID(),response:null,confidence:null,reason:'',notes:'',recognized:false});}
 function persist(d){save(draftKey(),d);}
 function pendingFor(d){return localStorage.getItem(PENDING+d.id)!==null;}
 function stageTag(s){return labelStage(s?.stage);}
 function headerActions(){return '<button class="secondary" data-action="toggle-focus">'+(focus?'✕ Sair do foco':'⛶ Modo foco')+'</button><button class="secondary" data-action="font">A+</button>';}
+function selectOptions(options,value){return options.map(([v,label])=>'<option value="'+esc(v)+'" '+(value===v?'selected':'')+'>'+esc(label)+'</option>').join('');}
 function dashboard(){
  if(!data)return intro('Sua revisão em um só lugar.','Entre com a chave que já utiliza nos flashcards.')+'<div class="review-empty"><h2>Conecte seu caderno para começar</h2><p>As questões, histórico e agendamentos serão lidos no mesmo Supabase.</p><button class="primary" data-action="connect">Conectar minha chave →</button></div>';
- const o=overview(),list=tab==='due'?o.due:tab==='fresh'?o.fresh:o.future;
+ const o=overview();
+ const list=o[tab]||o.due;
  const pct=o.spacedAttempts?Math.round(o.spacedCorrect/o.spacedAttempts*100)+'%':'—';
- const dates=(data.events||[]).filter(e=>dateOf(e.created_at)===todayISO());
- return '<div class="review-overview">'+intro('Revisão guiada pelo conhecimento.','O retorno é por conceito, não pela memorização de um mesmo enunciado.')+
-  '<div class="review-hero"><div><span class="eyebrow">SEU PRÓXIMO PASSO</span><h2>Responda. Entenda.<br>Volte quando importa.</h2><p>O sistema alterna questões oficiais ligadas ao mesmo mecanismo e só reconhece retenção após um retorno espaçado.</p><div class="actions">'+(o.due.length?'<button class="primary" data-action="start" data-type="due">Revisar '+o.due.length+' conceitos vencidos →</button>':o.fresh.length?'<button class="primary" data-action="start" data-type="fresh">Começar novos conceitos →</button>':'<span class="pill">Nenhuma revisão vencida agora</span>')+'</div></div><span class="hero-symbol" aria-hidden="true">◎</span></div>'+
-  '<div class="review-metrics"><div class="review-metric"><strong>'+o.due.length+'</strong><span>Conceitos vencidos</span><small>Prioridade de hoje</small></div><div class="review-metric"><strong>'+o.fresh.length+'</strong><span>Novos conceitos</span><small>Ainda não testados no site</small></div><div class="review-metric"><strong>'+dates.length+'</strong><span>Questões hoje</span><small>Tentativas confirmadas</small></div><div class="review-metric"><strong>'+pct+'</strong><span>Retenção observada</span><small>'+o.spacedCorrect+' acertos em '+o.spacedAttempts+' retornos espaçados</small></div></div>'+
+ const scopedIDs=new Set((data.questions||[]).filter(q=>reviewScope(q,scope)).map(q=>q.id));
+ const dates=(data.events||[]).filter(e=>dateOf(e.created_at)===todayISO()&&scopedIDs.has(e.question_id));
+ const materies=Object.entries(matterTitles).filter(([code])=>(data.questions||[]).some(q=>q.topic?.startsWith(code+'.')&&(!scope.year||scope.year==='all'||String(q.year)===String(scope.year))));
+ const topics=(data.syllabus||[]).filter(s=>!scope.matter||scope.matter==='all'||s.code.startsWith(scope.matter+'.'));
+ const subtopics=[...new Set((data.questions||[]).filter(q=>q.subtopic&&(!scope.matter||scope.matter==='all'||q.topic.startsWith(scope.matter+'.'))&&(!scope.topic||scope.topic==='all'||q.topic===scope.topic)&&(!scope.year||scope.year==='all'||String(q.year)===String(scope.year))).map(q=>q.subtopic))].sort();
+ const selection='<section class="review-filters" aria-label="Filtros da revisão"><div class="filter-title"><span class="eyebrow">ORGANIZE SEU ESTUDO</span><h2>Escolha a matéria e o assunto</h2><p>Os filtros não alteram os intervalos já agendados das demais matérias.</p></div><div class="filter-grid">'+
+  '<label>Matéria<select id="reviewMatter">'+selectOptions([['all','Todas as matérias'],...materies.map(([id,name])=>[id,id+' — '+name])],scope.matter)+'</select></label>'+
+  '<label>Tópico do edital<select id="reviewTopic">'+selectOptions([['all','Todos os tópicos'],...topics.map(t=>[t.code,t.code+' — '+t.title])],scope.topic)+'</select></label>'+
+  '<label>Subitem<select id="reviewSubtopic">'+selectOptions([['all','Todos os subitens'],...subtopics.map(id=>[id,id])],scope.subtopic)+'</select></label>'+
+  '<label>Ano de aplicação<select id="reviewYear">'+selectOptions([['2026','2026 · foco atual'],['all','2023–2026 e futuras importações'],['2025','2025'],['2024','2024'],['2023','2023']],scope.year)+'</select></label>'+
+  '<label>Vínculo com edital<select id="reviewAdherence">'+selectOptions([['direct','Aderência direta (recomendado)'],['all','Direta + parcial'],['partial','Somente parcial']],scope.adherence)+'</select></label>'+
+  '</div><div class="filter-end"><span><strong>'+o.total+'</strong> conceitos neste recorte</span><button class="text-button" data-action="reset-filters">Limpar filtros</button></div></section>';
+ const names=[['due','Vencidas',o.due.length],['fresh','Novas',o.fresh.length],['gaps','Lacunas',o.gaps.length],['mixed','Mista',o.mixed.length],['future','Programadas',o.future.length]];
+ const next=tab==='future'?o.due[0]||o.fresh[0]:(list||[])[0];
+ return '<div class="review-overview">'+intro('Revisão guiada pelo conhecimento.','Matérias, tópicos e subitens conforme os vínculos auditados ao edital da CGU.')+
+  '<div class="review-hero"><div><span class="eyebrow">SEU PRÓXIMO PASSO</span><h2>Responda. Entenda.<br>Volte quando importa.</h2><p>Responda C/E, informe a confiança e trabalhe os mecanismos que realmente precisam de recuperação.</p>'+(next?'<button class="primary" data-action="start" data-type="'+(tab==='future'?(o.due.length?'due':'fresh'):tab)+'">Iniciar '+esc(tab==='future'?'revisão disponível':(names.find(x=>x[0]===tab)?.[1]||'revisão').toLowerCase())+' →</button>':'<span class="pill">Sem questões nesta seleção</span>')+'</div><span class="hero-symbol" aria-hidden="true">◎</span></div>'+
+  selection+
+  '<div class="review-metrics"><div class="review-metric"><strong>'+o.due.length+'</strong><span>Conceitos vencidos</span><small>Neste recorte</small></div><div class="review-metric"><strong>'+o.fresh.length+'</strong><span>Conceitos novos</span><small>Sem tentativa no site</small></div><div class="review-metric"><strong>'+dates.length+'</strong><span>Questões hoje</span><small>Tentativas confirmadas</small></div><div class="review-metric"><strong>'+pct+'</strong><span>Retenção observada</span><small>'+o.spacedCorrect+' acertos em '+o.spacedAttempts+' retornos</small></div></div>'+
   '<div class="section-title"><h2>Sua fila de aprendizagem</h2><button class="text-button" data-action="history">Ver evidências →</button></div><div class="review-tabs">'+
-  [['due','Vencidas · '+o.due.length],['fresh','Novas · '+o.fresh.length],['future','Programadas · '+o.future.length]].map(([v,label])=>'<button data-action="tab" data-tab="'+v+'" class="'+(v===tab?'active':'')+'" aria-pressed="'+(v===tab)+'">'+label+'</button>').join('')+'</div>'+
-  (list.length?'<div class="review-list">'+list.map(item=>'<article class="review-topic"><span class="review-tag">'+esc(item.topic)+' · '+(item.state?esc(stageTag(item.state)):'NOVO')+'</span><h3>'+esc(item.title)+'</h3><p>'+((data.links||[]).filter(l=>l.concept_id===item.id).length)+' variação(ões) de questões vinculadas</p><div class="small-row"><span class="muted">'+(item.state?'Próxima: '+formatDate(item.state.due_at):'Primeiro diagnóstico')+'</span>'+(tab==='future'?'<span class="pill">Programada</span>':'<button class="text-button" data-action="practice" data-concept="'+esc(item.id)+'">Praticar →</button>')+'</div></article>').join('')+'</div>':'<div class="review-empty"><h3>'+ (tab==='due'?'Revisões em dia.':tab==='fresh'?'Nenhum conceito novo.':'Não há revisões futuras.')+'</h3><p>'+(tab==='due'?'O próximo contato será exibido quando o intervalo vencer.':'Os conceitos ficam vinculados às questões oficiais já disponíveis.')+'</p></div>')+
-  '<div class="notice" style="margin-top:20px">Os intervalos desta primeira versão são graduais (1, 3, 7, 14, 30, 60 e 90 dias), independentes do FSRS dos flashcards. Acertos inseguros e repetições no mesmo dia não comprovam retenção. Famílias amplas de temas poderão ser refinadas sem apagar tentativas.</div>'+
-  (data.historyTruncated?'<div class="notice">O histórico completo permanece no banco. O painel analisa no máximo os 2.000 registros recentes de cada tipo.</div>':'')+'</div>';
+  names.map(([v,label,count])=>'<button data-action="tab" data-tab="'+v+'" class="'+(v===tab?'active':'')+'" aria-pressed="'+(v===tab)+'">'+label+' · '+count+'</button>').join('')+'</div>'+
+  (list.length?'<div class="review-list">'+list.slice(0,limit).map(item=>'<article class="review-topic"><span class="review-tag">'+esc(item.topic)+(item.question?.subtopic?' · '+esc(item.question.subtopic):'')+' · '+(item.state?esc(stageTag(item.state)):'NOVO')+'</span><h3>'+esc(item.title)+'</h3><p>'+((data.links||[]).filter(l=>l.concept_id===item.id&&scopedIDs.has(l.question_id)).length)+' variação(ões) de questões · '+esc(item.question?.organization||'')+' '+esc(item.question?.year||'')+'</p><div class="small-row"><span class="muted">'+(item.state?'Próxima: '+formatDate(item.state.due_at):'Primeiro diagnóstico')+'</span>'+(tab==='future'?'<span class="pill">Programada</span>':'<button class="text-button" data-action="practice" data-concept="'+esc(item.id)+'">Praticar →</button>')+'</div></article>').join('')+'</div>'+(list.length>limit?'<div class="review-actions"><span class="muted">Exibindo '+limit+' de '+list.length+'</span><button class="secondary" data-action="show-more">Mostrar mais conceitos</button></div>':''):'<div class="review-empty"><h3>Nenhum conceito neste recorte.</h3><p>Altere a matéria, o assunto ou o tipo de revisão para consultar outra parte do banco.</p></div>')+
+  '<div class="notice" style="margin-top:20px">O banco de 2026 combina enunciados oficiais extraídos, vínculo auditado ao edital e gabarito definitivo pareado. Os comentários pedagógicos de novos itens ainda serão desenvolvidos. Consulte os PDFs quando houver gráficos, imagens, tabelas ou contexto complexo. Acerto imediato não equivale a retenção.</div>'+
+  (data.historyTruncated?'<div class="notice">A análise do painel utiliza somente os 2.000 eventos mais recentes; o histórico completo permanece no banco.</div>':'')+'</div>';
 }
 function question(){
  if(!active)return dashboard();
@@ -87,7 +104,7 @@ function render(){
 }
 function choose(type,id=null){
  const o=overview();
- const items=type==='fresh'?o.fresh:o.due;
+ const items=o[type]||o.due;
  active=id?items.find(x=>x.id===id):items[0];
  if(!active){screen='dashboard';render();return;}
  screen='question';tab=type;feedback=null;render();window.scrollTo({top:0,behavior:'instant'});
@@ -168,7 +185,9 @@ document.addEventListener('click',async event=>{
   if(action==='connect'||button.id==='connect'){$('#connectionDialog').showModal();return;}
   if(action==='home'){screen='dashboard';feedback=null;focus=false;render();return;}
   if(action==='history'){screen='history';feedback=null;focus=false;render();return;}
-  if(action==='tab'){tab=button.dataset.tab;render();return;}
+  if(action==='tab'){tab=button.dataset.tab;limit=36;render();return;}
+  if(action==='show-more'){limit+=36;render();return;}
+  if(action==='reset-filters'){scope={matter:'all',topic:'all',subtopic:'all',year:'2026',adherence:'direct'};save('juniorcards-riq-scope-v2',scope);limit=36;render();return;}
   if(action==='start'){choose(button.dataset.type);return;}
   if(action==='practice'){choose(tab,button.dataset.concept);return;}
   if(action==='answer'||action==='confidence'){
@@ -178,7 +197,7 @@ document.addEventListener('click',async event=>{
   if(action==='submit'){await submit();return;}
   if(action==='retry'){await retry();return;}
   if(action==='next'){
-   feedback=null;const remaining=tab==='fresh'?overview().fresh:overview().due;
+   feedback=null;const remaining=overview()[tab]||overview().due;
    if(remaining.length)choose(tab);else{screen='dashboard';focus=false;render();}
    return;
   }
@@ -197,6 +216,8 @@ document.addEventListener('input',e=>{
  const d=draft();d[field==='reviewReason'?'reason':'notes']=e.target.value;persist(d);
 });
 document.addEventListener('change',e=>{
+ const field={reviewMatter:'matter',reviewTopic:'topic',reviewSubtopic:'subtopic',reviewYear:'year',reviewAdherence:'adherence'}[e.target.id];
+ if(field){scope[field]=e.target.value;if(field==='matter'){scope.topic='all';scope.subtopic='all';}if(field==='topic')scope.subtopic='all';save('juniorcards-riq-scope-v2',scope);limit=36;render();return;}
  if(e.target.id==='reviewRecognized'&&active&&!feedback){const d=draft();d.recognized=e.target.checked;persist(d);}
 });
 $('#closeConnect').onclick=()=>$('#connectionDialog').close();
