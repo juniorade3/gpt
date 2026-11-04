@@ -160,13 +160,16 @@ async function revisitAttempt(attemptId){
 async function copyCorrectionPrompt(){
  if(!active||!feedback)return;
  const text=gptCorrectionPrompt({question:active.question,attempt:feedback.attempt,answer:feedback.answer,concept:active,explanation:feedback.explanation});
- if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);}
- else{
+ let copied=false;
+ if(navigator.clipboard?.writeText){
+  try{await navigator.clipboard.writeText(text);copied=true;}catch{}
+ }
+ if(!copied){
   const field=document.createElement('textarea');field.value=text;
   field.style.position='fixed';field.style.opacity='0';document.body.appendChild(field);
   field.select();
-  const done=document.execCommand('copy');field.remove();
-  if(!done)throw new Error('Seleção de texto não disponível neste navegador.');
+  copied=!!document.execCommand('copy');field.remove();
+  if(!copied)throw new Error('Este navegador bloqueou a cópia automática. Use Aprofundar com GPT ou tente outra aba.');
  }
  toast('Pedido completo copiado. Abra o GPT e cole na conversa, se necessário.');
 }
