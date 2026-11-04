@@ -1,4 +1,5 @@
 import { handleStudy } from "./study.ts";
+import { handleRevision } from "./revision.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import { createEmptyCard, fsrs, Rating } from "npm:ts-fsrs@5.4.2";
 
@@ -148,6 +149,7 @@ Deno.serve(async (req: Request) => {
 
   const route = routeName(req);
   if (route === "study") return handleStudy(req, db, json);
+  if (route === "revision") return handleRevision(req, db, json);
 
   if (route === "cards" && req.method === "GET") {
     const [decksR, cardsR, statesR, eventsR] = await Promise.all([

@@ -6,6 +6,10 @@ Flashcards with FSRS, Markdown, cloud synchronization and subject hierarchies.
 
 Open **Questões CGU e laboratórios** or `questoes.html`. The module shares the current access key and Supabase function. Each official item has a source panel with its original board, agency, job, exam date, notice year, booklet, item number, PDF page and Drive references; the 100 active items and definitive keys were checked against the original PDFs on 2026-11-02. It preserves flashcards and adds question blocks, confidence, doubts, attempts and visual explanations. See [CGU module documentation](docs/CGU-MODULE.md) for content status, import workflow and verification limits.
 
+## Revisão Inteligente por Questões
+
+Abra **Revisão Inteligente** na página inicial ou acesse `revisao.html`. O módulo apresenta itens C/E oficiais relacionados por conceito, registra a confiança antes de mostrar o gabarito, conserva a resolução e agenda novos retornos por tentativas verificadas. Usa a mesma chave do Junior Cards, o mesmo Supabase e o mesmo deployment Vercel. A lógica de revisão por conceitos não altera o FSRS dos flashcards. Veja [funcionamento e limites](docs/RIQ.md).
+
 ## Study and organization
 
 Select a subject, then use **Tudo** to study its cards and every subcategory. A subcategory includes its own nested categories. **Geral** filters cards assigned directly to the subject, when applicable. Each tab shows the number of new or due cards; the empty state distinguishes an empty category from completed reviews.
