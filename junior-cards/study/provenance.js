@@ -19,7 +19,11 @@ export function renderStatement(question){
 
 export function renderExamReference(question,{showKey=false}={}){
   const p=question.provenance;
-  if(!p?.verification)return '<div class="exam-origin">'+escape(examIdentity(question))+'</div>';
+  if(!p?.verification){
+    const exam=p?.exam_file||{},key=p?.answer_key_file||{},bank=p?.bank||{};
+    const meta=[p?.job,question.subtopic,p?.adherence&&'Aderência '+p.adherence].filter(Boolean).join(' · ');
+    return '<section class="exam-provenance" aria-label="Origem da questão"><div class="exam-origin">'+escape(examIdentity(question))+'</div><details class="source-details"><summary>Dados da prova e fontes · conferência pelo banco</summary><p>'+escape(meta)+'</p>'+(p?.source_note?'<div class="notice">'+escape(p.source_note)+'</div>':'')+'<div class="source-links"><a href="'+url(exam.url)+'" target="_blank" rel="noopener">PDF da prova no Drive ↗</a><a href="'+url(bank.url)+'" target="_blank" rel="noopener">Planilha canônica no Drive ↗</a>'+(showKey?'<a href="'+url(key.url)+'" target="_blank" rel="noopener">Gabarito pareado no Drive ↗</a>':'')+'</div><p class="source-location">Enunciado: linha '+escape(bank.enunciados_row)+' · Vínculo: linha '+escape(bank.vinculos_row)+' · Gabarito: linha '+escape(bank.gabaritos_row)+'. Questão '+escape(question.id)+'.</p></details></section>';
+  }
   const exam=p.exam_file||{},key=p.answer_key_file||{},bank=p.bank||{};
   const fields=[['Banca',p.board],['Órgão / instituição',p.agency_full||question.organization],
     ['Data de aplicação',p.exam_date_label],['Ano do edital',p.notice_year],['Cargo / especialidade',p.job],
