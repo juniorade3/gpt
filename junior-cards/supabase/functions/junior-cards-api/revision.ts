@@ -53,9 +53,38 @@ export async function handleRevision(req: Request, db: any, json: (data: any, st
   }
   if (req.method!=='POST') return json({error:'Método não permitido.'},405);
   const body = await req.json().catch(()=>null);
-  if (!body || typeof body!=='object' || Array.isArray(body) || body.action!=='submit') {
+  if (!body || typeof body!=='object' || Array.isArray(body)) {
     return json({error:'Pedido inválido.'},400);
   }
+  // Read an already saved attempt. It never creates another attempt or advances intervals.
+  // The same application access key is checked in index.ts before dispatching here.
+  if (body.action==='recap') {
+    if(!validUuid(body.attempt))return json({error:'Identificador inválido.'},400);
+    const attemptResult=await db.from('cgu_attempts')
+      .select('id,block_id,question_id,response,confidence,reason,notes,recognized,mode,is_correct,answer_snapshot,explanation_version,explanation_snapshot,created_at')
+      .eq('id',body.attempt).maybeSingle();
+    if(attemptResult.error)throw attemptResult.error;
+    if(!attemptResult.data)return json({error:'Tentativa não encontrada.'},404);
+    const attempt=attemptResult.data;
+    const [questionResult,eventResult]=await Promise.all([
+      db.from('cgu_questions').select('id,explanation,version').eq('id',attempt.question_id).single(),
+      db.from('cgu_revision_events')
+        .select('attempt_id,concept_id,question_id,response,confidence,is_correct,recognized,spaced,qualified,transfer,stage,interval_days,next_due_at,created_at')
+        .eq('attempt_id',body.attempt).maybeSingle()
+    ]);
+    if(questionResult.error||eventResult.error)throw questionResult.error||eventResult.error;
+    if(!eventResult.data)return json({error:'Tentativa sem evento de revisão.'},404);
+    const stateResult=await db.from('cgu_revision_state')
+      .select('concept_id,stage,due_at,interval_days,spaced_successes,lapses,last_question_id,last_reviewed_at')
+      .eq('concept_id',eventResult.data.concept_id).maybeSingle();
+    if(stateResult.error)throw stateResult.error;
+    const changed=Number(questionResult.data.version)>Number(attempt.explanation_version);
+    return json({attempt,answer:attempt.answer_snapshot,
+      explanation:changed?questionResult.data.explanation:attempt.explanation_snapshot,
+      explanationUpdated:changed,
+      state:stateResult.data||null,event:eventResult.data,recap:true});
+  }
+  if(body.action!=='submit')return json({error:'Pedido inválido.'},400);
   if (!validUuid(body.id) || typeof body.concept!=='string' || !body.concept ||
       typeof body.question!=='string' || !body.question ||
       typeof body.block!=='string' || !body.block ||
