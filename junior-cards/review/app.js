@@ -1,5 +1,6 @@
 import {buildOverview,confidenceOptions,formatDate,labelStage,reviewScope,matterTitles} from './model.js';
 import {renderStatement,renderExamReference} from '../study/provenance.js';
+import {correctionProfile,hasPedagogicalExplanation,gptCorrectionPrompt,chatGPTPromptUrl,transferExercise} from './correction.js';
 
 const API='https://vdqikaysebdondezpeqg.supabase.co/functions/v1/junior-cards-api/revision';
 const ACCESS='juniorcards-access-key',DRAFT='juniorcards-riq-draft:',PENDING='juniorcards-riq-pending:';
@@ -10,7 +11,7 @@ const save=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
 const todayISO=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
 const dateOf=value=>new Date(value).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
 
-let data=null,screen='dashboard',tab='due',active=null,feedback=null,busy=false,focus=false,loading=false,limit=36;
+let data=null,screen='dashboard',tab='due',active=null,feedback=null,busy=false,focus=false,loading=false,limit=36,recapMode=false,transferAnswer=null;
 let scope=read('juniorcards-riq-scope-v2',{matter:'all',topic:'all',subtopic:'all',year:'2026',adherence:'direct'});
 let font=Number(localStorage.getItem('cgu-font')||1.08);
 document.documentElement.style.setProperty('--reading',font+'rem');
@@ -81,12 +82,43 @@ function question(){
  :correction())+'</article></div>';
 }
 function correction(){
- const a=feedback.attempt,x=feedback.explanation||{},s=feedback.state,e=feedback.event;
+ const a=feedback.attempt,x=feedback.explanation||{},s=feedback.state||{},e=feedback.event||{},q=active.question;
+ const profile=correctionProfile(a);
  const verified=a.is_correct;
- const hint=!verified?'Reveja o mecanismo e retorne à nova questão quando o intervalo vencer.':e.qualified?(e.transfer?'Acerto seguro em retorno espaçado com enunciado diferente.':'Acerto seguro em retorno espaçado.'): 'Este acerto não foi classificado como retenção espaçada.';
- return '<div class="review-feedback" id="reviewFeedback" aria-live="polite"><div class="result-banner"><div><h2 class="'+(verified?'result-correct':'result-wrong')+'">'+(a.response==='B'?'Questão em branco':verified?'Você acertou':'Este conceito precisa de reparo')+'</h2><p>Sua resposta: '+(a.response==='C'?'Certo':a.response==='E'?'Errado':'Branco')+' · Confiança: '+esc(a.confidence)+'</p></div><span class="pill">Gabarito: '+(feedback.answer==='C'?'Certo':'Errado')+'</span></div><div class="feedback-note"><strong>'+esc(stageTag(s))+'</strong><br>Próximo contato: '+formatDate(s?.due_at)+' · Intervalo: '+s?.interval_days+' dia(s).<br>'+esc(hint)+'</div>'+
- [['Ponto decisivo',x.decisive],['Entenda o mecanismo',x.mechanism],['Como a banca pode cobrar',x.trap],['Transferência para outra questão',x.takeaway],['Observação técnica',x.caveat]].filter(([,p])=>p).map(([title,value])=>'<section><h3>'+title+'</h3><p>'+esc(value)+'</p></section>').join('')+
- '<div class="notice" style="margin-top:18px">Sua justificativa foi armazenada, mas não avaliada automaticamente. Repetições no mesmo dia não elevam o estágio de domínio.</div><div class="review-actions"><button class="secondary" data-action="home">Ver minha fila</button><button class="primary" data-action="next">Próximo conceito →</button></div></div>';
+ const sourceHasExplanation=hasPedagogicalExplanation(x);
+ const transfer=transferExercise(x);
+ const gptPrompt=gptCorrectionPrompt({question:q,attempt:a,answer:feedback.answer,concept:active,explanation:x});
+ const gptUrl=chatGPTPromptUrl(gptPrompt);
+ const hint=!verified?'Reveja o fundamento e retorne no prazo agendado.':e.qualified?(e.transfer?'Acerto seguro em retorno espaçado com enunciado diferente.':'Acerto seguro em retorno espaçado.'): 'Este acerto não foi classificado como retenção espaçada.';
+ const keyLabel=feedback.answer==='C'?'Certo':'Errado';
+ const responseLabel=a.response==='C'?'Certo':a.response==='E'?'Errado':'Branco';
+ const isHighPriority=!verified&&a.confidence==='Seguro';
+ const row=(title,value)=>value?'<section class="debrief-section"><h3>'+esc(title)+'</h3><p>'+esc(value)+'</p></section>':'';
+ const explanation=sourceHasExplanation?
+  '<div class="debrief-source"><span>COMENTÁRIO PEDAGÓGICO</span><small>O gabarito é oficial; a análise didática é independente da banca.</small></div>'+
+  row('O ponto decisivo',x.decisive)+row('Entenda o mecanismo',x.mechanism)+
+  '<details class="debrief-deep" '+(!verified?'open':'')+'><summary>Como a banca pode confundir os conceitos</summary>'+
+  row('Armadilha da Cebraspe',x.trap)+row('Regra para levar à prova',x.takeaway)+'</details>':
+  '<section class="debrief-unavailable"><h3>Explicação técnica ainda não revisada para este item</h3><p>O gabarito oficial está confirmado, mas não vamos apresentar uma justificativa gerada sem conferência como se fosse comentário da banca. Use o botão abaixo para solicitar uma correção reversa contextualizada ao GPT.</p><p><strong>Conceito a recuperar:</strong> '+esc(active.title)+' · '+esc(q.subtopic||q.topic||'CGU')+'</p></section>';
+ const transferHTML=transfer && !verified?'<section class="debrief-transfer" id="debriefTransfer"><span class="eyebrow">TESTE AUTORAL · SEM REGISTRO DE RETENÇÃO</span><h3>Você consegue transferir o conceito?</h3><p>'+esc(transfer.statement)+'</p><div class="review-transfer-choices">'+
+  [['C','Certo'],['E','Errado']].map(([v,label])=>'<button type="button" data-action="transfer" data-value="'+v+'" aria-pressed="'+(transferAnswer===v)+'">'+label+'</button>').join('')+'</div>'+
+  (transferAnswer?'<div class="transfer-result" role="status"><strong>'+(transferAnswer===transfer.answer?'Acertou o novo caso.':'Neste novo caso, a resposta é '+(transfer.answer==='C'?'Certo':'Errado')+'.')+'</strong><p>'+esc(transfer.explanation)+'</p><small>Exercício de compreensão imediato, não é revisão espaçada e não altera a agenda.</small></div>':'<small>Responda antes de ver a explicação deste item novo.</small>')+'</section>':'';
+ const note=(a.reason||a.notes)?
+ '<details class="debrief-reason"><summary>Seu raciocínio original (salvo)</summary>'+(a.reason?'<p><strong>Justificativa:</strong> '+esc(a.reason)+'</p>':'')+(a.notes?'<p><strong>Dúvida:</strong> '+esc(a.notes)+'</p>':'')+'<small>A justificativa ainda não foi avaliada automaticamente; o GPT poderá discuti-la se você escolher enviar.</small></details>':'';
+ const deepLink=gptUrl?'<a class="gpt-open" href="'+esc(gptUrl)+'" target="_blank" rel="noopener noreferrer">Aprofundar com GPT ↗</a>':
+  '<a class="gpt-open" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir o ChatGPT ↗</a>';
+ const nextAction=recapMode?'history':'next',nextText=recapMode?'Voltar ao histórico →':'Próximo conceito →';
+ return '<div class="review-feedback" id="reviewFeedback" aria-live="polite">'+
+ '<div class="result-banner"><div><span class="result-indicator '+esc(profile.tone)+'">'+esc(profile.label)+'</span><h2 class="'+(verified?'result-correct':'result-wrong')+'">'+esc(profile.title)+'</h2><p>Sua resposta: <strong>'+responseLabel+'</strong> · Confiança: <strong>'+esc(a.confidence)+'</strong></p></div><span class="pill">Gabarito: '+keyLabel+'</span></div>'+
+ '<div class="feedback-note"><strong>'+esc(stageTag(s))+'</strong><br>Próximo contato: '+(s.due_at?formatDate(s.due_at):'conforme fila')+' · Intervalo: '+(s.interval_days??'—')+' dia(s).<br>'+esc(hint)+'</div>'+
+ '<p class="debrief-guidance">'+esc(profile.guidance)+'</p>'+
+ (isHighPriority?'<p class="debrief-alert">Atenção prioritária: erro com confiança alta. Não conclua que a causa foi identificada sem analisar sua justificativa.</p>':'')+
+ note+(feedback.explanationUpdated?'<p class="debrief-updated">Este comentário foi enriquecido após sua tentativa. O registro original da tentativa permanece preservado.</p>':'')+
+ explanation+transferHTML+
+ '<section class="debrief-gpt"><div><span class="eyebrow">CORREÇÃO REVERSA ORIENTADA PELA BANCA</span><h3>Aprofundar com o GPT</h3><p>Abre o ChatGPT com o enunciado, a identificação da prova, o gabarito, sua resposta, confiança e justificativa. Peça a explicação do mecanismo e um novo teste sem gabarito antecipado.</p></div><div class="debrief-gpt-actions">'+deepLink+'<button class="secondary" type="button" data-action="copy-gpt">Copiar pedido completo</button></div><small>'+(gptUrl?'O texto é preparado automaticamente. Dependendo do navegador, talvez seja preciso tocar em Enviar no ChatGPT.':'O texto completo excede o tamanho seguro para um link. Primeiro copie o pedido e cole no ChatGPT.')+'</small></section>'+
+ (x.caveat?'<details class="debrief-technical"><summary>Observações sobre as fontes</summary><p>'+esc(x.caveat)+'</p></details>':'')+
+ '<div class="notice" style="margin-top:18px">A agenda já foi registrada no Supabase. A correção e o teste imediato não adiantam a próxima revisão, nem transformam o resultado em retenção espaçada.</div>'+
+ '<div class="review-actions"><button class="secondary" data-action="'+(recapMode?'history':'home')+'">'+(recapMode?'← Histórico':'Ver minha fila')+'</button><button class="primary" data-action="'+nextAction+'">'+nextText+'</button></div></div>';
 }
 function history(){
  if(!data)return dashboard();
