@@ -43,3 +43,13 @@ test('comentário genérico de importação não é vendido como correção did�
  assert.equal(hasPedagogicalExplanation({caveat:'Gabarito pareado, sem explicação'}),false);
  assert.equal(hasPedagogicalExplanation({mechanism:'VPN é uma conexão; extranet é a natureza do acesso.'}),true);
 });
+
+test('encaminhamento nomeia o plugin instalado e ajusta modo por resultado',()=>{
+ const error={...attempt,reason:''};
+ const prompt=gptCorrectionPrompt({question:item,attempt:error,answer:'C',concept:{title:'VPN x extranet'}});
+ assert.match(prompt,/PLUGIN DESTINATÁRIO: Correção reversa orientada por cobrança de banca/);
+ assert.match(prompt,/MODO COMPLETO/);
+ assert.match(prompt,/não afirme que foi ativado sem confirmação/);
+ const correct={...attempt,response:'C',is_correct:true,confidence:'Seguro'};
+ assert.match(gptCorrectionPrompt({question:item,attempt:correct,answer:'C'}),/MODO MÉDIO/);
+});

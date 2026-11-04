@@ -44,3 +44,8 @@ O histórico oferece **Rever correção**: chama a ação autenticada read-only 
 Foi publicada correção comentada específica para a questão oficial Funpresp-Jud/2026, item 54, sobre VPN, intranet e extranet, com teste autoral de transferência. A tentativa original do candidato permanece intacta; esta nova explicação aparece ao reabrir o registro no histórico.
 
 O módulo não possui integração automática de API GPT dentro do servidor: a interação opcional ocorre em uma nova conversa do ChatGPT iniciada pelo usuário. Para as demais questões importadas ainda sem revisão pedagógica, não se afirma que um comentário já exista.
+
+## Encaminhamento para plugin instalado de correção reversa
+O botão **Preparar no ChatGPT** passa a nomear explicitamente o plugin instalado **Correção reversa orientada por cobrança de banca** no pedido. O prompt inclui enunciado original, identificação da prova, item, conceito do edital, gabarito definitivo já confirmado, resposta, confiança, justificativa e dúvidas. Erros ou itens em branco solicitam MODO COMPLETO; acertos solicitam MODO MÉDIO, mantendo o teste autoral de transferência sem antecipação do gabarito.
+
+A URL https://chatgpt.com/?q=... é uma tentativa de preencher a caixa de mensagem em uma nova conversa. **Não é uma API de execução do plugin nem uma garantia de seleção automática.** Na interface ChatGPT, o usuário pode selecionar o plugin por menção @ ou menu + > Plugins antes do envio. O site exibe essas instruções e um botão de cópia integral para casos de URL longa ou navegador sem suporte a preenchimento. Nunca passar a chave de acesso do Junior Cards para o ChatGPT. A resposta do plugin ainda não retorna automaticamente ao Supabase e não substitui o gabarito oficial.
