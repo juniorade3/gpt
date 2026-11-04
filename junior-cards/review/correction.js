@@ -12,13 +12,18 @@ export function correctionProfile(attempt){
 export function hasPedagogicalExplanation(explanation){
  return !!(explanation && typeof explanation.mechanism==='string' && explanation.mechanism.trim());
 }
+export const CORRECTION_PLUGIN_NAME='Correção reversa orientada por cobrança de banca';
 export function gptCorrectionPrompt({question,attempt,answer,concept,explanation}){
  if(!question || !attempt || !['C','E'].includes(answer))throw new Error('Só é possível aprofundar uma tentativa confirmada com gabarito oficial.');
  const p=question.provenance||{},id=question.id||'';
  const result=attempt.is_correct?'acertou':attempt.response==='B'?'deixou em branco':'errou';
  const reason=(attempt.reason||'').trim();
  const notes=(attempt.notes||'').trim();
+ const mode=(!attempt.is_correct||attempt.response==='B')?'MODO COMPLETO':'MODO MÉDIO';
  const text=[
+  'PLUGIN DESTINATÁRIO: '+CORRECTION_PLUGIN_NAME+'.',
+  'Use o plugin instalado com esse nome para analisar o item. Solicito '+mode+' conforme as instruções do plugin. Se o plugin não estiver selecionado automaticamente na conversa, informe que preciso selecioná-lo pelo menu de Plugins ou pela menção @; não afirme que foi ativado sem confirmação.',
+  'Esta solicitação vem do site Junior Cards; o botão do site prepara a mensagem, mas não controla a seleção do plugin dentro do ChatGPT.',
   'Faça uma CORREÇÃO REVERSA orientada pela cobrança da banca Cebraspe para a CGU (Auditor TI/Infraestrutura).',
   'Diferencie rigorosamente o gabarito oficial da explicação didática. Não altere o gabarito; se a redação admitir ressalvas, explicite-as e sugira conferência ao PDF.',
   'Explique por que a afirmação é certa/errada, o mecanismo técnico, as condições de validade, as confusões conceituais e como a Cebraspe explora a mesma distinção.',
@@ -30,6 +35,8 @@ export function gptCorrectionPrompt({question,attempt,answer,concept,explanation
   'Banca: '+(p.board||'Cebraspe')+' | Órgão: '+(question.organization||'')+' | Aplicação: '+(p.exam_date_label||question.year||''),
   'Caderno: '+(question.book||'')+' | Item original: '+(question.item??'')+' | Edital CGU: '+(question.subtopic||question.topic||''),
   'Conceito associado: '+(concept?.title||question.subject||''),
+  p.exam_file?.url?'PDF da prova no Drive: '+p.exam_file.url:'',
+  p.answer_key_file?.url?'Gabarito no Drive (para conferência): '+p.answer_key_file.url:'',
   'Enunciado integral:',
   question.statement||'',
   question.context?'Contexto disponível da prova: '+question.context:'',
@@ -44,6 +51,7 @@ export function gptCorrectionPrompt({question,attempt,answer,concept,explanation
   'Reconheci a questão antes? '+(attempt.recognized?'sim':'não informado'),
   '',
   'Se a explicação não tiver sido conferida em fonte oficial, trate-a como interpretação pedagógica, não como comentário da banca.',
+  'Adapte o MODO COMPLETO ao item único C/E. Faça leitura estratégica, teoria necessária, distinções, estratégia da banca, regra de prova, síntese e caderno de erros. Para respostas com justificativa ausente, não invente motivo pessoal.',
   'A correção desta sessão não comprova retenção espaçada.'
  ];
  return text.filter(Boolean).join('\n');
