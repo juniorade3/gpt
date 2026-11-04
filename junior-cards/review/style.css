@@ -126,3 +126,6 @@
  .debrief-transfer,.debrief-gpt{padding:16px 14px}
  .review-feedback .debrief-section p{font-size:14px}
 }
+
+.review-feedback .result-correct{color:#344e8b}
+.review-feedback .result-wrong{color:#854959}
